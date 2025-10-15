@@ -1,13 +1,18 @@
+// config/database.js
 const { Sequelize } = require('sequelize');
 require('dotenv').config();
 
+// config/database.js
+const { Sequelize } = require('sequelize');
+require('dotenv').config();
 
 const sequelize = new Sequelize(
-  process.env.DB_NAME || 'healthpal_db1',
+  process.env.DB_NAME || 'healthpal_db',
   process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '123456789',   // <-- changed from DB_PASS
+  process.env.DB_PASSWORD || '123456789',
   {
     host: process.env.DB_HOST || '127.0.0.1',
+    port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
     logging: false,
     pool: {
@@ -19,17 +24,9 @@ const sequelize = new Sequelize(
   }
 );
 
+// Test connection
+sequelize.authenticate()
+  .then(() => console.log('✅ Database connected'))
+  .catch(err => console.error('❌ Unable to connect:', err));
 
-// Test the connection to the database
-async function testConnection() {
-  try {
-    await sequelize.authenticate();
-    console.log('Database connected...');
-  } catch (err) {
-    console.error('Unable to connect to database:', err);
-  }
-}
-
-testConnection(); // Call the testConnection function to verify database connection
-
-module.exports = { sequelize, Sequelize };
+module.exports = sequelize; // export the **instance**, not { sequelize, Sequelize }

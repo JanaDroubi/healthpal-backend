@@ -1,26 +1,67 @@
-const { DataTypes } = require('sequelize');
-const { sequelize } = require('../config/db');
-const Item = require('./Item'); // Assuming the Item model is in the same directory
+import { DataTypes } from "sequelize";
+import sequelize from "../config/db.js";
+import User from "./User.js";
+import Item from "./Item.js";
 
-const MedicationInventory = sequelize.define('MedicationInventory', {
-  id: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    primaryKey: true,
-    autoIncrement: true
-  },
-  itemId: {
-    type: DataTypes.INTEGER.UNSIGNED,
-    allowNull: false,
-    references: {
-      model: Item,  // This is the referenced model
-      key: 'id'     // This is the referenced column (Item.id)
+const MedicationInventory = sequelize.define(
+  "MedicationInventory",
+  {
+    id: {
+      type: DataTypes.BIGINT,
+      primaryKey: true,
+      autoIncrement: true,
     },
-    onDelete: 'CASCADE',  // Optional: Delete related records when an item is deleted
-    onUpdate: 'CASCADE'   // Optional: Update related records when an item is updated
+    owner_id: {
+      type: DataTypes.BIGINT,
+      allowNull: false,
+      references: {
+        model: User,
+        key: "user_id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
+    },
+    item_id: {
+      type: DataTypes.BIGINT,
+      allowNull: false,
+      references: {
+        model: Item,
+        key: "id",
+      },
+      onUpdate: "CASCADE",
+      onDelete: "CASCADE",
+    },
+    quantity_available: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      validate: {
+        min: 0,
+      },
+    },
+    expiration_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+    },
+    location_city: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    verified: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
   },
-  batchNumber: { type: DataTypes.STRING },
-  quantity: { type: DataTypes.INTEGER.UNSIGNED, defaultValue: 0 },
-  expiryDate: { type: DataTypes.DATEONLY },
-}, { timestamps: true });
+  {
+    tableName: "medication_inventory",
+    timestamps: false,
+  }
+);
 
-module.exports = MedicationInventory;
+// ✅ Associations
+User.hasMany(MedicationInventory, { foreignKey: "owner_id" });
+MedicationInventory.belongsTo(User, { foreignKey: "owner_id" });
+
+Item.hasMany(MedicationInventory, { foreignKey: "item_id" });
+MedicationInventory.belongsTo(Item, { foreignKey: "item_id" });
+
+export default MedicationInventory;

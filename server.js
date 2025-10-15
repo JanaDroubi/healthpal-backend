@@ -1,13 +1,15 @@
-require('dotenv').config();
 const express = require('express');
-const bodyParser = require('body-parser');
-const logger = require('./utils/logger');
-const { sequelize } = require('./models'); 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const { sequelize } = require('./config/db');
+const SponsorshipCase = require('./models/SponsorshipCase');
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+sequelize.sync({ alter: true }).then(() => console.log('Database synced'));
+
+const app = express();
+app.use(express.json());
+
+app.get('/', (req, res) => res.send('API running 🚀'));
+
+app.listen(3000, () => console.log('Server running on http://localhost:3000'));
 
 // Basic route
 app.get('/', (req, res) => {
@@ -25,12 +27,10 @@ app.use(errorHandler);
 // Start server after DB connect
 async function start() {
   try {
+    require('./models'); // <-- أضف هذا السطر
     await sequelize.authenticate();
     logger.info('Database connected');
-
-    // 🧱 تفعيل sync (خلال التطوير فقط)
-    // await sequelize.sync({ alter: true }); // لتحديث البنية عند الحاجة
-    await sequelize.sync(); // safer — only creates tables if they don't exist
+    await sequelize.sync(); 
 
     app.listen(PORT, () => {
       logger.info(`Server listening on port ${PORT}`);
@@ -40,6 +40,7 @@ async function start() {
     process.exit(1);
   }
 }
+
 
 start();
 

@@ -1,30 +1,35 @@
 import { DataTypes } from "sequelize";
 import sequelize from "../config/db.js";
+import User from "./User.js";
+import SupportGroupMember from "./SupportGroupMember.js";
 
-const Guide = sequelize.define(
-  "Guide",
+const SupportGroup = sequelize.define(
+  "SupportGroup",
   {
     id: {
       type: DataTypes.BIGINT,
       primaryKey: true,
       autoIncrement: true,
     },
-    title: {
+    name: {
       type: DataTypes.STRING(200),
       allowNull: false,
     },
-    body: {
+    description: {
       type: DataTypes.TEXT,
-      allowNull: false,
+      allowNull: true,
     },
-    audience: {
-      type: DataTypes.ENUM("GENERAL", "MATERNAL", "CHRONIC", "FIRST_AID"),
+    topic: {
+      type: DataTypes.ENUM(
+        "PTSD",
+        "GRIEF",
+        "CHRONIC_ILLNESS",
+        "DISABILITY",
+        "LOSS",
+        "GENERAL"
+      ),
       allowNull: false,
       defaultValue: "GENERAL",
-    },
-    published_at: {
-      type: DataTypes.DATE,
-      allowNull: true,
     },
     created_at: {
       type: DataTypes.DATE,
@@ -38,14 +43,14 @@ const Guide = sequelize.define(
     },
   },
   {
-    tableName: "guides",
+    tableName: "support_groups",
     timestamps: false,
     hooks: {
-      beforeUpdate: (guide) => {
-        guide.updated_at = new Date();
+      beforeUpdate: (group) => {
+        group.updated_at = new Date();
       },
     },
   }
 );
 
-export default Guide;
+export default SupportGroup;

@@ -1,86 +1,65 @@
-const { sequelize } = require('../config/db');
+import { Sequelize } from "sequelize";
+import dotenv from "dotenv";
+dotenv.config();
 
-// 🧩 استيراد جميع الموديلات
-const User = require('./User');
-const PatientProfile = require('./PatientProfile');
-const DoctorProfile = require('./DoctorProfile');
-const DonorProfile = require('./DonorProfile');
-const NgoProfile = require('./NgoProfile');
-const Consultation = require('./Consultation');
-const SponsorshipCase = require('./SponsorshipCase');
-const Donation = require('./Donation');
-const Invoice = require('./Invoice');
-const Receipt = require('./Receipt');
-const Item = require('./Item');
-const MedicationInventory = require('./MedicationInventory');
-const EquipmentInventory = require('./EquipmentInventory');
-const SupplyRequest = require('./SupplyRequest');
-const Fulfillment = require('./Fulfillment');
-const Guide = require('./Guide');
-const Webinar = require('./Webinar');
-const WebinarRegistration = require('./WebinarRegistration');
+// 1️⃣ Initialize Sequelize
+const sequelize = new Sequelize(
+  process.env.DB_NAME,
+  process.env.DB_USER,
+  process.env.DB_PASSWORD,
+  {
+    host: process.env.DB_HOST,
+    dialect: "mysql", // or 'postgres' if you're using PostgreSQL
+    logging: false,
+    define: {
+      timestamps: false, // we manage created_at / updated_at manually
+    },
+  }
+);
 
-// ==================================================
-// 🧠 تعريف العلاقات بين الجداول
-// ==================================================
+// 2️⃣ Import all models
+import User from "./User.js";
+import PatientProfile from "./PatientProfile.js";
+import DoctorProfile from "./DoctorProfile.js";
+import DonorProfile from "./DonorProfile.js";
+import NgoProfile from "./NgoProfile.js";
 
-// 🔹 علاقات المستخدمين (Profiles)
-User.hasOne(PatientProfile, { foreignKey: 'userId' });
-PatientProfile.belongsTo(User, { foreignKey: 'userId' });
+import SponsorshipCase from "./SponsorshipCase.js";
+import Donation from "./Donation.js";
+import Invoice from "./Invoice.js";
+import Receipt from "./Receipt.js";
 
-User.hasOne(DoctorProfile, { foreignKey: 'userId' });
-DoctorProfile.belongsTo(User, { foreignKey: 'userId' });
+import Item from "./Item.js";
+import MedicationInventory from "./MedicationInventory.js";
+import EquipmentInventory from "./EquipmentInventory.js";
 
-User.hasOne(DonorProfile, { foreignKey: 'userId' });
-DonorProfile.belongsTo(User, { foreignKey: 'userId' });
+import SupplyRequest from "./SupplyRequest.js";
+import Fulfillment from "./Fulfillment.js";
 
-User.hasOne(NgoProfile, { foreignKey: 'userId' });
-NgoProfile.belongsTo(User, { foreignKey: 'userId' });
+import Guide from "./Guide.js";
+import Webinar from "./Webinar.js";
+import WebinarRegistration from "./WebinarRegistration.js";
 
-// 🔹 الاستشارات (Consultations)
-PatientProfile.hasMany(Consultation, { foreignKey: 'patientId' });
-Consultation.belongsTo(PatientProfile, { foreignKey: 'patientId' });
+import TherapySession from "./TherapySession.js";
 
-DoctorProfile.hasMany(Consultation, { foreignKey: 'doctorId' });
-Consultation.belongsTo(DoctorProfile, { foreignKey: 'doctorId' });
+import SupportGroup from "./SupportGroup.js";
+import SupportGroupMember from "./SupportGroupMember.js";
 
-// 🔹 التبرعات (Donations)
-SponsorshipCase.hasMany(Donation, { foreignKey: 'caseId' });
-Donation.belongsTo(SponsorshipCase, { foreignKey: 'caseId' });
+import NgoPartnership from "./NgoPartnership.js";
+import MedicalMission from "./MedicalMission.js";
+import MissionVolunteer from "./MissionVolunteer.js";
+import MissionAppointment from "./MissionAppointment.js";
+import MissionAnnouncement from "./MissionAnnouncement.js";
 
-Donation.belongsTo(DonorProfile, { foreignKey: 'donorId' });
-DonorProfile.hasMany(Donation, { foreignKey: 'donorId' });
-
-// 🔹 الفواتير والإيصالات (Invoices & Receipts)
-Invoice.hasMany(Receipt, { foreignKey: 'invoiceId' });
-Receipt.belongsTo(Invoice, { foreignKey: 'invoiceId' });
-
-// 🔹 العناصر والمخزون (Items & Inventories)
-Item.hasMany(MedicationInventory, { foreignKey: 'itemId' });
-MedicationInventory.belongsTo(Item, { foreignKey: 'itemId' });
-
-Item.hasMany(EquipmentInventory, { foreignKey: 'itemId' });
-EquipmentInventory.belongsTo(Item, { foreignKey: 'itemId' });
-
-// 🔹 الطلبات والتوريد (Supply & Fulfillment)
-SupplyRequest.hasMany(Fulfillment, { foreignKey: 'requestId' });
-Fulfillment.belongsTo(SupplyRequest, { foreignKey: 'requestId' });
-
-// 🔹 الندوات (Webinars)
-Webinar.hasMany(WebinarRegistration, { foreignKey: 'webinarId' });
-WebinarRegistration.belongsTo(Webinar, { foreignKey: 'webinarId' });
-
-// ==================================================
-// ✅ تصدير جميع النماذج لتُستخدم في باقي الملفات
-// ==================================================
-module.exports = {
+// 3️⃣ Export Sequelize instance and models
+const db = {
   sequelize,
+  Sequelize,
   User,
   PatientProfile,
   DoctorProfile,
   DonorProfile,
   NgoProfile,
-  Consultation,
   SponsorshipCase,
   Donation,
   Invoice,
@@ -93,4 +72,20 @@ module.exports = {
   Guide,
   Webinar,
   WebinarRegistration,
+  TherapySession,
+  SupportGroup,
+  SupportGroupMember,
+  NgoPartnership,
+  MedicalMission,
+  MissionVolunteer,
+  MissionAppointment,
+  MissionAnnouncement,
 };
+
+// 4️⃣ Test the connection
+sequelize
+  .authenticate()
+  .then(() => console.log("✅ Database connected successfully"))
+  .catch((err) => console.error("❌ Unable to connect to DB:", err));
+
+export default db;
