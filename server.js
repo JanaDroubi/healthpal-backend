@@ -1,47 +1,40 @@
 const express = require('express');
-const { sequelize } = require('./config/db');
-const SponsorshipCase = require('./models/SponsorshipCase');
+const colors = require('colors');
+const morgan = require('morgan');
+const dotenv = require('dotenv');
+const mySqlPool = require("./config/db")
 
-sequelize.sync({ alter: true }).then(() => console.log('Database synced'));
 
+//configure dotenv
+dotenv.config();
+
+//rest object
 const app = express();
+
+//middlewares
 app.use(express.json());
+app.use(morgan("dev"));
 
-app.get('/', (req, res) => res.send('API running 🚀'));
+//routes
+app.use("/api/users", require("./routes/userRoutes"));
 
-app.listen(3000, () => console.log('Server running on http://localhost:3000'));
 
-// Basic route
-app.get('/', (req, res) => {
-  res.send('HealthPal API is running');
+app.get('/test', (req, res) => {
+    res.send('hello world');
 });
 
-// Import routes
-const userRoutes = require('./routes/userRoutes');
-app.use('/api/users', userRoutes);
+//port
+const PORT = process.env.PORT || 3100;
 
-// Error handler
-const { errorHandler } = require('./middleware/errorHandler');
-app.use(errorHandler);
+//contidionaly Listen
+mySqlPool.query('SELECT 1').then(() => {
 
-// Start server after DB connect
-async function start() {
-  try {
-    require('./models'); // <-- أضف هذا السطر
-    await sequelize.authenticate();
-    logger.info('Database connected');
-    await sequelize.sync(); 
-
+    //MY SQL
+    console.log('MYSQL DB Connected'.bgCyan.white)
+    //listen
     app.listen(PORT, () => {
-      logger.info(`Server listening on port ${PORT}`);
+        console.log(`Server Running on port ${PORT}`.bgMagenta.white);
     });
-  } catch (err) {
-    logger.error('Failed to start app', err);
-    process.exit(1);
-  }
-}
-
-
-start();
-
-module.exports = app;
+}).catch((error)=>{
+    console.log(error);
+});

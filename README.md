@@ -1,6 +1,6 @@
 # HealthPal Backend (scaffold)
 
-This is a generated scaffold for the HealthPal backend using Express, Sequelize and MySQL.
+This is a generated scaffold for the HealthPal backend using Express and MySQL.
 
 Setup:
 
