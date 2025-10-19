@@ -1,17 +1,21 @@
 const express = require('express');
-const { getUsers, signupUser, signinUser } = require('../controllers/userController');
+const { signupUser, signinUser } = require('../controllers/userController');
 const mysql= require('mysql2/promise')
 const { requireAuth } = require("../middleware/auth");
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
 
+const { getUsers } = require('../controllers/userController');
+const { getUserById } = require('../controllers/userController');
+const { updateUser } = require('../controllers/userController');
+const { deleteUser } = require('../controllers/userController');
 
 //router object
 const router = express.Router();
 
 
 
-//GET ALL STUDENTS LIST || GET
+//GET ALL USERS LIST || GET
 router.get('/getallusers', getUsers);
 
 //signup || creat user
@@ -36,4 +40,15 @@ router.get("/me", requireAuth, (req, res) => {
 //   res.json({ message: "Doctors and Therapists can view patients." });
 // });
 //routes
+//GET USER BY ID || GET
+router.get('/getuser/:id', getUserById);
+
+//UPDATE USER
+router.put('/updateuser/:id', updateUser);
+
+//DELETE USER
+router.delete('/deleteuser/:id', deleteUser);
+
+
+
 module.exports = router;
