@@ -18,6 +18,15 @@ const router = express.Router();
 //GET ALL USERS LIST || GET
 router.get('/getallusers', getUsers);
 
+//GET USER BY ID || GET
+router.get('/getuser/:id', getUserById);
+
+//UPDATE USER
+router.put('/updateuser/:id', updateUser);
+
+//DELETE USER
+router.delete('/deleteuser/:id', deleteUser);
+
 //signup || creat user
 router.post("/signup", signupUser);
 
@@ -39,15 +48,7 @@ router.get("/me", requireAuth, (req, res) => {
 // router.get("/patients", requireAuth, authorizeRoles("DOCTOR", "THERAPIST"), (req, res) => {
 //   res.json({ message: "Doctors and Therapists can view patients." });
 // });
-//routes
-//GET USER BY ID || GET
-router.get('/getuser/:id', getUserById);
 
-//UPDATE USER
-router.put('/updateuser/:id', updateUser);
-
-//DELETE USER
-router.delete('/deleteuser/:id', deleteUser);
 
 
 
