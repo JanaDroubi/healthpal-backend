@@ -37,4 +37,5 @@ router.delete('/deletepatient/:user_id', requireAuth, authorizeRoles("ADMIN", "P
 router.get('/stats', requireAuth, authorizeRoles("ADMIN"), getPatientsStats);
 
 
+
 module.exports = router;
