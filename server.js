@@ -20,6 +20,7 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
 
+
 app.get('/test', (req, res) => {
     res.send('hello world');
 });

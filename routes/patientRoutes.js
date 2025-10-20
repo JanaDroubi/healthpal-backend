@@ -1,27 +1,41 @@
+// patientRoutes.js
+
 const express = require('express');
 const {
   getAllPatients,
   getPatientByUserId,
   createPatientProfile,
   updatePatientProfile,
-  deletePatient
+  deletePatient,
+  getPatientsStats
 } = require('../controllers/patientController');
+
+const { requireAuth } = require("../middleware/auth");
+const { authorizeRoles } = require("../middleware/authorizeRoles");
+
+
+
 
 const router = express.Router();
 
 // GET all patients
-router.get('/getallpatients', getAllPatients);
+router.get('/getallpatients', requireAuth, authorizeRoles("ADMIN", "DOCTOR"), getAllPatients);
 
 // GET profile by user_id
-router.get('/getpatient/:user_id', getPatientByUserId);
+router.get('/viewpatientprofile/:user_id', requireAuth, authorizeRoles("ADMIN", "DOCTOR", "PATIENT"), getPatientByUserId);
 
 // CREATE profile
-router.post('/createpatient', createPatientProfile);
+router.post('/createpatient', requireAuth, authorizeRoles("ADMIN","PATIENT"), createPatientProfile);
 
 // UPDATE profile
-router.put('/updatepatient/:user_id', updatePatientProfile);
+router.put('/updatepatient/:user_id', requireAuth, authorizeRoles("ADMIN", "PATIENT"), updatePatientProfile);
 
 // DELETE profile
-router.delete('/deletepatient/:user_id', deletePatient);
+router.delete('/deletepatient/:user_id', requireAuth, authorizeRoles("ADMIN", "PATIENT"), deletePatient);
+
+// GET patient statistics
+router.get('/stats', requireAuth, authorizeRoles("ADMIN"), getPatientsStats);
+
+
 
 module.exports = router;

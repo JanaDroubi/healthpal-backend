@@ -317,3 +317,4 @@ module.exports = {
   deletePatient,
   getPatientsStats
 };
+

@@ -2,7 +2,7 @@ const express = require('express');
 const { signupUser, signinUser } = require('../controllers/userController');
 const mysql= require('mysql2/promise')
 const { requireAuth } = require("../middleware/auth");
-const { authorizeRoles } = require("../middleware/authorizeRoles");
+
 
 
 const { getUsers } = require('../controllers/userController');
@@ -17,6 +17,15 @@ const router = express.Router();
 
 //GET ALL USERS LIST || GET
 router.get('/getallusers', getUsers);
+
+//GET USER BY ID || GET
+router.get('/getuser/:id', getUserById);
+
+//UPDATE USER
+router.put('/updateuser/:id', updateUser);
+
+//DELETE USER
+router.delete('/deleteuser/:id', deleteUser);
 
 //signup || creat user
 router.post("/signup", signupUser);
@@ -36,18 +45,15 @@ router.get("/me", requireAuth, (req, res) => {
 
 
 
+//router.get("/patients", verifyToken, authorizeRoles("ADMIN", "DOCTOR"), getAllPatients);
+//router.post("/patients", verifyToken, authorizeRoles("PATIENT"), createPatientProfile);
+
+
+
 // router.get("/patients", requireAuth, authorizeRoles("DOCTOR", "THERAPIST"), (req, res) => {
 //   res.json({ message: "Doctors and Therapists can view patients." });
 // });
-//routes
-//GET USER BY ID || GET
-router.get('/getuser/:id', getUserById);
 
-//UPDATE USER
-router.put('/updateuser/:id', updateUser);
-
-//DELETE USER
-router.delete('/deleteuser/:id', deleteUser);
 
 
 
