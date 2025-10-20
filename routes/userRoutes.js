@@ -2,7 +2,7 @@ const express = require('express');
 const { signupUser, signinUser } = require('../controllers/userController');
 const mysql= require('mysql2/promise')
 const { requireAuth } = require("../middleware/auth");
-const { authorizeRoles } = require("../middleware/authorizeRoles");
+
 
 
 const { getUsers } = require('../controllers/userController');
@@ -42,6 +42,11 @@ router.get("/me", requireAuth, (req, res) => {
   });
 });
 
+
+
+
+//router.get("/patients", verifyToken, authorizeRoles("ADMIN", "DOCTOR"), getAllPatients);
+//router.post("/patients", verifyToken, authorizeRoles("PATIENT"), createPatientProfile);
 
 
 
