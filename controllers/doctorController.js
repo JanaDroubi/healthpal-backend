@@ -501,7 +501,79 @@ const deactivateDoctor = async (req, res) => {
   }
 };
 
+//get doctor by id
+const getDoctorById = async (req, res) => {
+  try {
+    const { user_id } = req.params;
+
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const actorId = String(actor.id || '');
+
+    if (actorRole === 'DOCTOR' && actorId !== String(user_id)) {
+      return res.status(403).send({
+        success: false,
+        message: 'Doctors can only view their own profile.'
+      });
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT 
+        u.user_id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.status,
+        u.role,
+        dp.university_name,
+        dp.graduation_year,
+        dp.gender,
+        dp.specialty,
+        dp.license_no,
+        dp.bio,
+        dp.hire_date,
+        dp.telehealth_enabled,
+        dp.verified,
+        dp.created_at,
+        dp.updated_at
+      FROM \`user\` u
+      LEFT JOIN doctor_profiles dp ON u.user_id = dp.user_id
+      WHERE u.user_id = ? AND u.role = 'DOCTOR' AND u.status = 'ACTIVE'
+      `,
+      [user_id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: 'Doctor not found.'
+      });
+    }
+
+    const doc = rows[0];
+
+    
+    doc.telehealth_enabled = !!doc.telehealth_enabled;
+    doc.verified = !!doc.verified;
+    doc.hire_date = doc.hire_date ? dayjs(doc.hire_date).format('YYYY-MM-DD') : null;
+
+    return res.status(200).send({
+      success: true,
+      message: 'Doctor profile retrieved successfully.',
+      data: doc
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      success: false,
+      message: 'Error fetching doctor profile.',
+      error
+    });
+  }
+};
 
 
 
-module.exports = { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor };
+
+module.exports = { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor , getDoctorById};

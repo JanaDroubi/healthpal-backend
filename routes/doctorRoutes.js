@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor } = require('../controllers/doctorController');
+const { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor, getDoctorById } = require('../controllers/doctorController');
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
 
@@ -13,5 +13,7 @@ router.put('/update/doctorprofile/:user_id', requireAuth, authorizeRoles('DOCTOR
 router.get('/viewdoctors',requireAuth,authorizeRoles('ADMIN'), getAllDoctors);
 //Deactivate doctor: delete profile + set user.status = 'INACTIVE' (transactional)
 router.delete('/deletedoctor/:user_id',requireAuth,authorizeRoles('ADMIN'), deactivateDoctor);
+//get by id 
+router.get('/getdoctor/:user_id',requireAuth,authorizeRoles('ADMIN', 'DOCTOR'),getDoctorById);
 
 module.exports = router;
