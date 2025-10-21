@@ -19,6 +19,7 @@ app.use(morgan("dev"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
+app.use("/api/donors", require("./routes/donorRoutes"));
 
 
 app.get('/test', (req, res) => {
