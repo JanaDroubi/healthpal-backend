@@ -7,7 +7,8 @@ const {
   createPatientProfile,
   updatePatientProfile,
   deletePatient,
-  getPatientsStats
+  getPatientsStats,
+  listAvailableForPatients
 } = require('../controllers/patientController');
 
 const { requireAuth } = require("../middleware/auth");
@@ -35,6 +36,13 @@ router.delete('/deletepatient/:user_id', requireAuth, authorizeRoles("ADMIN", "P
 
 // GET patient statistics
 router.get('/stats', requireAuth, authorizeRoles("ADMIN"), getPatientsStats);
+
+////////////////// feature one //////////////////
+//get all available slot of doctors
+router.get('/availabilitySlot', requireAuth, authorizeRoles("PATIENT"), listAvailableForPatients);
+
+
+////////////////// end feature one //////////////////
 
 
 

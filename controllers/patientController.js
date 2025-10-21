@@ -399,6 +399,96 @@ const getPatientsStats = async (req, res) => {
     });
   }
 };
+////////////////// feature one //////////////////
+//get all available slot of doctors
+const listAvailableForPatients = async (req, res) => {
+  try {
+    let {
+      specialty,
+      gender,
+      from,
+      to,
+      limit = '100',
+      offset = '0'
+    } = req.query;
+
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    const whereParts = [
+      'a.is_booked = 0',                  
+      "u.role = 'DOCTOR'",
+      "u.status = 'ACTIVE'",
+      'a.end_at >= NOW()'               
+    ];
+    const params = [];
+
+    if (specialty) {
+      whereParts.push('COALESCE(dp.specialty, "") LIKE ?');
+      params.push(`%${specialty}%`);
+    }
+
+    if (gender) {
+      whereParts.push('COALESCE(dp.gender, "") = ?');
+      params.push(gender);
+    }
+
+    if (from) {
+      const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!f.isValid()) {
+        return res.status(400).json({ success: false, message: 'Invalid from date.' });
+      }
+      whereParts.push('a.end_at >= ?');
+      params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    if (to) {
+      const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!t.isValid()) {
+        return res.status(400).json({ success: false, message: 'Invalid to date.' });
+      }
+      whereParts.push('a.start_at <= ?');
+      params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const [rows] = await db.query(
+      `SELECT
+         a.id,
+         a.doctor_id,
+         a.start_at,
+         a.end_at,
+         a.is_booked,
+         u.full_name   AS doctor_name,
+         u.email       AS doctor_email,
+         dp.specialty,
+         dp.gender
+       FROM availability_slots a
+       JOIN \`user\` u       ON u.user_id = a.doctor_id
+       LEFT JOIN doctor_profiles dp ON dp.user_id = a.doctor_id
+       ${where}
+       ORDER BY a.start_at ASC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching available slots for patients.',
+      error: err
+    });
+  }
+};
+
+////////////////// end feature one //////////////////
 
 module.exports = {
   getAllPatients,
@@ -407,4 +497,5 @@ module.exports = {
   updatePatientProfile,
   deletePatient,
   getPatientsStats,
+  listAvailableForPatients
 };
