@@ -26,7 +26,7 @@ router.get('/getallpatients', requireAuth, authorizeRoles("ADMIN", "DOCTOR"), ge
 router.get('/viewpatientprofile/:user_id', requireAuth, authorizeRoles("ADMIN", "DOCTOR", "PATIENT"), getPatientByUserId);
 
 // CREATE profile
-router.post('/createpatient', requireAuth, authorizeRoles("ADMIN","PATIENT"), createPatientProfile);
+router.post('/createpatient', requireAuth, authorizeRoles("ADMIN", "PATIENT"), createPatientProfile);
 
 // UPDATE profile
 router.put('/updatepatient/:user_id', requireAuth, authorizeRoles("ADMIN", "PATIENT"), updatePatientProfile);
@@ -40,8 +40,6 @@ router.get('/stats', requireAuth, authorizeRoles("ADMIN"), getPatientsStats);
 ////////////////// feature one //////////////////
 //get all available slot of doctors
 router.get('/availabilitySlot', requireAuth, authorizeRoles("PATIENT"), listAvailableForPatients);
-
-
 ////////////////// end feature one //////////////////
 
 

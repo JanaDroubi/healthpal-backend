@@ -828,7 +828,6 @@ const deleteAvailabilitySlot = async (req, res) => {
     const actorRole = String(actor.role || '').trim().toUpperCase();
     const actorId = String(actor.id || '');
 
-    
     if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
       return res.status(403).json({
         success: false,
@@ -836,7 +835,6 @@ const deleteAvailabilitySlot = async (req, res) => {
       });
     }
 
-    
     const [[slot]] = await db.query(
       'SELECT * FROM availability_slots WHERE id = ? AND doctor_id = ?',
       [slot_id, doctor_id]
@@ -849,10 +847,10 @@ const deleteAvailabilitySlot = async (req, res) => {
       });
     }
 
-    if (slot.is_booked && actorRole !== 'ADMIN') {
+    if (slot.is_booked !== 0) {
       return res.status(403).json({
         success: false,
-        message: 'Cannot delete a booked slot unless you are an admin.'
+        message: 'Cannot delete this slot because it is already booked.'
       });
     }
 
@@ -872,6 +870,7 @@ const deleteAvailabilitySlot = async (req, res) => {
       success: true,
       message: 'Availability slot deleted successfully.'
     });
+
   } catch (err) {
     console.error(err);
     return res.status(500).json({
@@ -881,12 +880,6 @@ const deleteAvailabilitySlot = async (req, res) => {
     });
   }
 };
-
-
-
-
-
-
 
 //////////////////////////// end feature one //////////////////////////////
 
