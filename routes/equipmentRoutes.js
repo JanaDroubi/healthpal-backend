@@ -8,19 +8,38 @@ const {
   deleteEquipment,
 } = require("../controllers/equipmentController");
 
-// Get all equipment
-router.get("/", getAllEquipment);
+const { requireAuth } = require("../middleware/auth");
+const { authorizeRoles } = require("../middleware/authorizeRoles");
+const ROLES = require("../config/roles");
 
-// Get one equipment by id
-router.get("/:id", getEquipmentById);
+// ✅ Get all equipment - any authenticated user
+router.get("/", requireAuth, getAllEquipment);
 
-// Add new equipment
-router.post("/", addEquipment);
+// ✅ Get one equipment by id - any authenticated user
+router.get("/:id", requireAuth, getEquipmentById);
 
-// Update equipment by id
-router.put("/:id", updateEquipment);
+// ✅ Add new equipment - only ADMIN or HOSPITAL_STAFF
+router.post(
+  "/",
+  requireAuth,
+  authorizeRoles(ROLES.ADMIN, ROLES.HOSPITAL_STAFF),
+  addEquipment
+);
 
-// Delete equipment by id
-router.delete("/:id", deleteEquipment);
+// ✅ Update equipment by id - only ADMIN or HOSPITAL_STAFF
+router.put(
+  "/:id",
+  requireAuth,
+  authorizeRoles(ROLES.ADMIN, ROLES.HOSPITAL_STAFF),
+  updateEquipment
+);
+
+// ✅ Delete equipment by id - only ADMIN
+router.delete(
+  "/:id",
+  requireAuth,
+  authorizeRoles(ROLES.ADMIN),
+  deleteEquipment
+);
 
 module.exports = router;
