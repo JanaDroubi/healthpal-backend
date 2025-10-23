@@ -26,9 +26,11 @@ function formatCase(caseRow) {
 }
 
 /**
+* ==================================================================
  * Create a sponsorship case
  * - allowed: PATIENT (for own cases), DOCTOR (for patient), ADMIN
  * - initial status: PENDING
+* ==================================================================
  */
 const createCase = async (req, res) => {
   let conn;

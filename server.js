@@ -20,7 +20,8 @@ app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
 app.use("/api/donors", require("./routes/donorRoutes"));
-app.use("/api/sponsorship", require("./routes//sponsorshipRoutes"));
+app.use("/api/sponsorship", require("./routes/sponsorshipRoutes"));
+app.use("/api/donations", require("./routes/donationRoutes"));
 
 
 app.get('/test', (req, res) => {
