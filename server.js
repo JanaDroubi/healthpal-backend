@@ -1,9 +1,8 @@
-const express = require('express');
-const colors = require('colors');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
-const mySqlPool = require("./config/db")
-
+const express = require("express");
+const colors = require("colors");
+const morgan = require("morgan");
+const dotenv = require("dotenv");
+const mySqlPool = require("./config/db");
 
 //configure dotenv
 dotenv.config();
@@ -19,6 +18,7 @@ app.use(morgan("dev"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
+
 app.use("/api/donors", require("./routes/donorRoutes"));
 app.use("/api/sponsorship", require("./routes/sponsorshipRoutes"));
 app.use("/api/donations", require("./routes/donationRoutes"));
@@ -27,23 +27,28 @@ app.use("/api/receipts", require("./routes/receiptRoutes"));
 app.use("/api/updates", require("./routes/recoveryUpdates"));
 app.use("/api/feedbacks", require("./routes/patientFeedback"));
 
+app.use("/api/medication", require("./routes/medicationRoutes"));
+app.use("/api/equipment", require("./routes/equipmentRoutes"));
 
-app.get('/test', (req, res) => {
-    res.send('hello world');
+
+app.get("/test", (req, res) => {
+  res.send("hello world");
 });
 
 //port
 const PORT = process.env.PORT || 3100;
 
 //contidionaly Listen
-mySqlPool.query('SELECT 1').then(() => {
-
+mySqlPool
+  .query("SELECT 1")
+  .then(() => {
     //MY SQL
-    console.log('MYSQL DB Connected'.bgCyan.white)
+    console.log("MYSQL DB Connected".bgCyan.white);
     //listen
     app.listen(PORT, () => {
-        console.log(`Server Running on port ${PORT}`.bgMagenta.white);
+      console.log(`Server Running on port ${PORT}`.bgMagenta.white);
     });
-}).catch((error)=>{
+  })
+  .catch((error) => {
     console.log(error);
-});
+  });
