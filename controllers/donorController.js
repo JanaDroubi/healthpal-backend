@@ -6,7 +6,7 @@ const createDonorProfile = async (req, res) => {
   try {
     const { user_id, anonymity_pref, preferred_donation_type } = req.body;
 
-    //  تحقق أن المستخدم ينشئ ملفه فقط
+    
     if (req.user.role === "DONOR" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
@@ -18,7 +18,7 @@ const createDonorProfile = async (req, res) => {
       return res.status(400).send({ success: false, message: "User ID is required" });
     }
 
-    // تأكد أن اليوزر موجود
+    
     const [userRows] = await db.query("SELECT user_id, role FROM user WHERE user_id = ?", [user_id]);
     if (userRows.length === 0) {
       return res.status(404).send({ success: false, message: "User not found" });
@@ -32,7 +32,7 @@ const createDonorProfile = async (req, res) => {
       });
     }
 
-    //  تأكد أنه ما عنده بروفايل مسبقاً
+    
     const [profileExists] = await db.query("SELECT user_id FROM donor_profiles WHERE user_id = ?", [user_id]);
     if (profileExists.length > 0) {
       return res.status(409).send({
@@ -41,7 +41,7 @@ const createDonorProfile = async (req, res) => {
       });
     }
 
-    //  إنشاء البروفايل
+    
     await db.query(
       `INSERT INTO donor_profiles (user_id, anonymity_pref, preferred_donation_type)
        VALUES (?, ?, ?)`,
@@ -162,7 +162,7 @@ const updateDonorProfile = async (req, res) => {
     const { user_id } = req.params;
     const fields = { ...req.body };
 
-    // تحقق الصلاحية
+    // تحقق من السماح بالتعديل
     if (req.user.role === "DONOR" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
@@ -170,38 +170,50 @@ const updateDonorProfile = async (req, res) => {
       });
     }
 
-    // لو ما في بيانات مرسلة
     if (Object.keys(fields).length === 0) {
-      return res.status(400).send({ success: false, message: 'No fields to update' });
+      return res.status(400).send({ success: false, message: "No fields to update" });
     }
 
-    // نسمح فقط بالتعديل على هذول الحقول
-    const allowedFields = ['anonymity_pref', 'preferred_donation_type'];
-    const updates = Object.keys(fields).filter(f => allowedFields.includes(f));
-    if (updates.length === 0) {
-      return res.status(400).send({ success: false, message: 'No valid fields to update' });
+    
+    const donorFields = ["anonymity_pref", "preferred_donation_type"];
+    const userFields = ["full_name", "phone"];
+
+    const donorUpdates = Object.keys(fields).filter(f => donorFields.includes(f));
+    const userUpdates = Object.keys(fields).filter(f => userFields.includes(f));
+
+    if (donorUpdates.length === 0 && userUpdates.length === 0) {
+      return res.status(400).send({ success: false, message: "No valid fields to update" });
     }
 
-    const setClause = updates.map(f => `${f} = ?`).join(', ');
-    const values = updates.map(f => fields[f]);
+    
+    if (donorUpdates.length > 0) {
+      const setClause = donorUpdates.map(f => `${f} = ?`).join(", ");
+      const values = donorUpdates.map(f => fields[f]);
 
-    const [result] = await db.query(
-      `UPDATE donor_profiles SET ${setClause} WHERE user_id = ?`,
-      [...values, user_id]
-    );
+      await db.query(
+        `UPDATE donor_profiles SET ${setClause} WHERE user_id = ?`,
+        [...values, user_id]
+      );
+    }
 
-    if (result.affectedRows === 0) {
-      return res.status(404).send({ success: false, message: 'Donor profile not found' });
+    
+    if (userUpdates.length > 0) {
+      const setClause = userUpdates.map(f => `${f} = ?`).join(", ");
+      const values = userUpdates.map(f => fields[f]);
+
+      await db.query(
+        `UPDATE user SET ${setClause} WHERE user_id = ?`,
+        [...values, user_id]
+      );
     }
 
     res.status(200).send({
       success: true,
-      message: 'Donor profile updated successfully'
+      message: "Donor profile updated successfully",
     });
-
   } catch (error) {
     console.error(error);
-    res.status(500).send({ success: false, message: 'Error updating donor profile', error });
+    res.status(500).send({ success: false, message: "Error updating donor profile", error });
   }
 };
 
@@ -231,13 +243,13 @@ const deleteDonor = async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // حذف الملف الشخصي (اختياري)
+    
     const [delProfile] = await conn.query(
       "DELETE FROM donor_profiles WHERE user_id = ?",
       [user_id]
     );
 
-    // تعطيل المستخدم
+    
     const [updUser] = await conn.query(
       "UPDATE `user` SET status = 'INACTIVE', updated_at = NOW() WHERE user_id = ?",
       [user_id]

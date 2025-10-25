@@ -31,7 +31,7 @@ router.post('/create', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT')
 // - DONOR: only OPEN / FUNDED
 router.get('/all', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getAllCases);
 
-//  Get single sponsorship case by ID (detailed view)  => لازم ارجعلها
+//  Get single sponsorship case by ID (detailed view) 
 router.get('/view/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getCaseById);
 
 //  Update sponsorship case details

@@ -151,6 +151,7 @@ const getAllCases = async (req, res) => {
         patient_id: r.patient_id,
         patient_name: r.patient_name,
         title: r.title,
+        description: r.description,
         category: r.category,
         status: r.status,
         target_amount: r.target_amount,
@@ -175,8 +176,8 @@ const getAllCases = async (req, res) => {
 
 /**
  * Get case by id (detailed)
- * - include donations summary, invoices summary, receipts summary, and donor list (limited)
- * - permission: ADMIN/DOCTOR see all; PATIENT only own; DONOR only if OPEN/FUNDED
+ * - includes donations, invoices, receipts summaries
+ * - shows only suitable patient info (and medical details only if consented)
  */
 const getCaseById = async (req, res) => {
   try {
@@ -184,38 +185,72 @@ const getCaseById = async (req, res) => {
     const actor = req.user || {};
     const role = String(actor.role || '').toUpperCase();
 
+    // === Fetch case info + limited patient info
     const [rows] = await db.query(`
-      SELECT sc.*, p.user_id AS patient_user_id, u.full_name AS patient_name
+      SELECT 
+        sc.*,
+        p.user_id AS patient_user_id,
+        u.full_name AS patient_name,
+        p.gender,
+        p.dob,
+        p.city,
+        p.country,
+        p.consent_to_share_medical,
+        p.medical_history,
+        p.chronic_conditions_summary,
+        p.allergies_summary
       FROM sponsorship_cases sc
       JOIN patient_profiles p ON p.user_id = sc.patient_id
       JOIN user u ON u.user_id = p.user_id
       WHERE sc.id = ?
     `, [id]);
 
-    if (rows.length === 0) return res.status(404).send({ success: false, message: 'Case not found' });
+    if (rows.length === 0)
+      return res.status(404).send({ success: false, message: 'Case not found' });
+
     const c = rows[0];
 
-    // permission checks
+    // === Permissions
     if (role === 'PATIENT' && String(actor.id) !== String(c.patient_id)) {
       return res.status(403).send({ success: false, message: 'Patients can only view their own cases' });
     }
-    if (role === 'DONOR' && !['OPEN','FUNDED'].includes(String(c.status))) {
+    if (role === 'DONOR' && !['OPEN', 'FUNDED'].includes(String(c.status))) {
       return res.status(403).send({ success: false, message: 'Donors can only view public cases (OPEN / FUNDED)' });
     }
 
-    // donations summary
+    // === Calculate patient age (if dob available)
+    const age = c.dob ? Math.floor((new Date() - new Date(c.dob)) / (365.25 * 24 * 60 * 60 * 1000)) : null;
+
+    // === Basic patient info
+    const patientInfo = {
+      full_name: c.patient_name,
+      city: c.city,
+      country: c.country
+    };
+
+    // Add medical info only if consent is given
+    if (c.consent_to_share_medical) {
+      patientInfo.medical_history = c.medical_history;
+      patientInfo.chronic_conditions_summary = c.chronic_conditions_summary;
+      patientInfo.allergies_summary = c.allergies_summary;
+    }
+
+    // === Donations summary
     const [[donationSummary]] = await db.query(`
-      SELECT COUNT(*) AS donations_count, COALESCE(SUM(amount),0) AS total_donated
-      FROM donations WHERE case_id = ?
+      SELECT COUNT(*) AS donations_count, COALESCE(SUM(d.amount), 0) AS total_donated
+      FROM donations d
+      JOIN invoices i ON i.id = d.invoice_id
+      WHERE i.case_id = ?
     `, [id]);
 
-    // sample donors (most recent 10) - respect anonymity: show name only if donor profile public
+    // === Recent donors
     const [donors] = await db.query(`
       SELECT d.user_id AS donor_user_id, u.full_name, d.anonymity_pref, dn.amount, dn.paid_at
       FROM donations dn
       JOIN donor_profiles d ON d.user_id = dn.donor_id
+      JOIN invoices i ON i.id = dn.invoice_id
       LEFT JOIN user u ON u.user_id = d.user_id
-      WHERE dn.case_id = ?
+      WHERE i.case_id = ?
       ORDER BY dn.paid_at DESC
       LIMIT 10
     `, [id]);
@@ -227,38 +262,85 @@ const getCaseById = async (req, res) => {
       paid_at: dd.paid_at ? dayjs(dd.paid_at).format('YYYY-MM-DD HH:mm') : null
     }));
 
-    // invoices summary
-    const [invoiceSummary] = await db.query(`
+    // === Invoices summary
+    const [[invoiceSummary]] = await db.query(`
       SELECT COALESCE(SUM(amount),0) AS total_invoiced, COUNT(*) AS invoices_count
       FROM invoices WHERE case_id = ?
     `, [id]);
 
-    // receipts summary
-    const [receiptSummary] = await db.query(`
+    // === Receipts summary
+    const [[receiptSummary]] = await db.query(`
       SELECT COALESCE(SUM(paid_amount),0) AS total_receipted, COUNT(*) AS receipts_count
       FROM receipts r
       JOIN invoices i ON i.id = r.invoice_id
       WHERE i.case_id = ?
     `, [id]);
 
+    // === Fetch recovery updates (latest 3 public)
+const [updates] = await db.query(`
+  SELECT update_text, update_date
+  FROM recovery_updates
+  WHERE case_id = ? AND visibility = 'PUBLIC'
+  ORDER BY update_date DESC
+  LIMIT 3
+`, [id]);
+
+// === Fetch feedback (if exists)
+const [feedback] = await db.query(`
+  SELECT feedback_text, rating, created_at
+  FROM patient_feedback
+  WHERE case_id = ?
+`, [id]);
+
+
+
+
+    // === Combine all
     const result = {
-      case: formatCase(c),
+      case: {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        category: c.category,
+        target_amount: Number(c.target_amount),
+        raised_amount: Number(c.raised_amount),
+        status: c.status,
+        goal_deadline: c.goal_deadline ? dayjs(c.goal_deadline).format('YYYY-MM-DD') : null,
+        created_at: dayjs(c.created_at).format('YYYY-MM-DD HH:mm'),
+        updated_at: dayjs(c.updated_at).format('YYYY-MM-DD HH:mm'),
+        progress_percentage: c.target_amount
+          ? Math.min(100, Math.round((Number(c.raised_amount) / Number(c.target_amount)) * 10000) / 100)
+          : null
+      },
+      patient_info: patientInfo,
       donations: {
-        count: donationSummary.donations_count || 0,
+        count: Number(donationSummary.donations_count || 0),
         total: Number(donationSummary.total_donated || 0),
         recent: donorsMapped
       },
       invoices: {
-        total_invoiced: Number(invoiceSummary[0] ? invoiceSummary[0].total_invoiced : (invoiceSummary.total_invoiced || 0)) || Number(invoiceSummary.total_invoiced || 0),
-        invoices_count: invoiceSummary[0] ? Number(invoiceSummary[0].invoices_count) : Number(invoiceSummary.invoices_count || 0)
+        total_invoiced: Number(invoiceSummary.total_invoiced || 0),
+        invoices_count: Number(invoiceSummary.invoices_count || 0)
       },
       receipts: {
-        total_receipted: Number(receiptSummary[0] ? receiptSummary[0].total_receipted : (receiptSummary.total_receipted || 0)),
-        receipts_count: receiptSummary[0] ? Number(receiptSummary[0].receipts_count) : Number(receiptSummary.receipts_count || 0)
+        total_receipted: Number(receiptSummary.total_receipted || 0),
+        receipts_count: Number(receiptSummary.receipts_count || 0)
       }
     };
 
-    
+    result.recovery_updates = updates.map(u => ({
+  text: u.update_text,
+  date: dayjs(u.update_date).format('YYYY-MM-DD HH:mm')
+}));
+
+result.patient_feedback = feedback[0]
+  ? {
+      text: feedback[0].feedback_text,
+      rating: feedback[0].rating,
+      date: dayjs(feedback[0].created_at).format('YYYY-MM-DD HH:mm')
+    }
+  : null;
+
     res.status(200).send({ success: true, data: result });
 
   } catch (error) {
@@ -266,6 +348,8 @@ const getCaseById = async (req, res) => {
     res.status(500).send({ success: false, message: 'Error fetching case', error });
   }
 };
+
+
 
 /**
  * Update case (partial)
@@ -417,7 +501,7 @@ const changeCaseStatus = async (req, res) => {
 
     await conn.query(`UPDATE sponsorship_cases SET status = ?, updated_at = NOW() WHERE id = ?`, [newStatus, id]);
 
-    // optional: log audit (you could insert to a case_audit table - omitted here, but recommended)
+   
     await conn.commit();
 
     const [[fresh]] = await db.query('SELECT * FROM sponsorship_cases WHERE id = ?', [id]);
