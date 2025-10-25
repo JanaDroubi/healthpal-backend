@@ -18,8 +18,18 @@ app.use(morgan("dev"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
+
+app.use("/api/donors", require("./routes/donorRoutes"));
+app.use("/api/sponsorship", require("./routes/sponsorshipRoutes"));
+app.use("/api/donations", require("./routes/donationRoutes"));
+app.use("/api/invoices", require("./routes/invoiceRoutes"));
+app.use("/api/receipts", require("./routes/receiptRoutes"));
+app.use("/api/updates", require("./routes/recoveryUpdates"));
+app.use("/api/feedbacks", require("./routes/patientFeedback"));
+
 app.use("/api/medication", require("./routes/medicationRoutes"));
 app.use("/api/equipment", require("./routes/equipmentRoutes"));
+
 
 app.get("/test", (req, res) => {
   res.send("hello world");
