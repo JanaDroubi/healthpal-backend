@@ -573,7 +573,315 @@ const getDoctorById = async (req, res) => {
   }
 };
 
+//////////////////////////// feature one //////////////////////////////
 
 
+// ===== helpers =====
+function parseDateTime(input) {
+  // نقبل: "YYYY-MM-DD HH:mm" أو "YYYY-MM-DDTHH:mm" أو ISO
+  const formats = ['YYYY-MM-DD HH:mm', 'YYYY-MM-DDTHH:mm', dayjs.ISO_8601];
+  for (const f of formats) {
+    const d = dayjs(input, f, true);
+    if (d.isValid()) return d;
+  }
+  return dayjs.invalid();
+}
 
-module.exports = { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor , getDoctorById};
+async function ensureDoctorActive(doctorId) {
+  const [[row]] = await db.query(
+    'SELECT user_id, role, status FROM `user` WHERE user_id = ? LIMIT 1',
+    [doctorId]
+  );
+  if (!row) return { ok: false, code: 404, msg: 'Doctor user not found.' };
+  if (String(row.role || '').toUpperCase() !== 'DOCTOR')
+    return { ok: false, code: 403, msg: 'Target user is not a DOCTOR.' };
+  if (String(row.status || '').toUpperCase() !== 'ACTIVE')
+    return { ok: false, code: 403, msg: 'Doctor is not ACTIVE.' };
+  return { ok: true };
+}
+
+// Add availability slot
+const createAvailabilitySlot = async (req, res) => {
+  try {
+    const { doctor_id } = req.params;
+
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const actorId = String(actor.id || '');
+
+    if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctors can only add their own availability.'
+      });
+    }
+
+    const okDoc = await ensureDoctorActive(doctor_id);
+    if (!okDoc.ok) return res.status(okDoc.code).json({ success: false, message: okDoc.msg });
+
+    const { start_at, end_at } = req.body || {};
+    const start = parseDateTime(start_at);
+    const end   = parseDateTime(end_at);
+
+    if (!start.isValid() || !end.isValid()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid datetime format. Use YYYY-MM-DD HH:mm (24h) or ISO.'
+      });
+    }
+    if (!start.isBefore(end)) {
+      return res.status(400).json({
+        success: false,
+        message: 'start_at must be before end_at.'
+      });
+    }
+
+    if (start.isBefore(dayjs())) {
+      return res.status(400).json({
+        success: false,
+        message: 'start_at must be in the future.'
+      });
+    }
+
+    const [overlap] = await db.query(
+      `SELECT id FROM availability_slots
+       WHERE doctor_id = ?
+         AND start_at < ?
+         AND end_at   > ?
+       LIMIT 1`,
+      [
+        doctor_id,
+        end.format('YYYY-MM-DD HH:mm:ss'),
+        start.format('YYYY-MM-DD HH:mm:ss')
+      ]
+    );
+    if (overlap.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: 'This slot overlaps an existing availability.'
+      });
+    }
+
+    const [ins] = await db.query(
+      `INSERT INTO availability_slots (doctor_id, start_at, end_at, is_booked)
+       VALUES (?, ?, ?, 0)`,
+      [
+        doctor_id,
+        start.format('YYYY-MM-DD HH:mm:ss'),
+        end.format('YYYY-MM-DD HH:mm:ss')
+      ]
+    );
+
+    const [[row]] = await db.query('SELECT * FROM availability_slots WHERE id = ?', [ins.insertId]);
+
+    return res.status(201).json({
+      success: true,
+      message: 'Availability slot created.',
+      data: row
+    });
+  } catch (err) {
+    if (err && err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        success: false,
+        message: 'Exact same slot already exists for this doctor.'
+      });
+    }
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error creating availability slot.', error: err });
+  }
+};
+
+
+// list of availability slot for a doctor
+const listAvailabilityForDoctor = async (req, res) => {
+  try {
+    const { doctor_id } = req.params;
+
+    // التحقق من صاحب التوكن
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const actorId = String(actor.id || '');
+
+    if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
+      return res.status(403).json({ success: false, message: 'Doctors can only view their own availability.' });
+    }
+
+    // تأكد الطبيب موجود و ACTIVE
+    const okDoc = await ensureDoctorActive(doctor_id);
+    if (!okDoc.ok) return res.status(okDoc.code).json({ success: false, message: okDoc.msg });
+
+    // فلاتر اختيارية
+    const { from, to } = req.query;
+    let limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
+    let offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+    let where = 'a.doctor_id = ?';
+    const params = [doctor_id];
+
+    if (from) {
+      const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!f.isValid()) return res.status(400).json({ success: false, message: 'Invalid from date.' });
+      // أي فتحة تمتد بعد بداية المدى
+      where += ' AND a.end_at >= ?';
+      params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    if (to) {
+      const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!t.isValid()) return res.status(400).json({ success: false, message: 'Invalid to date.' });
+      // أي فتحة تبدأ قبل نهاية المدى
+      where += ' AND a.start_at <= ?';
+      params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    const [rows] = await db.query(
+      `SELECT 
+         a.id, a.doctor_id, a.start_at, a.end_at, a.is_booked,
+         u.full_name AS doctor_name, u.email AS doctor_email
+       FROM availability_slots a
+       JOIN \`user\` u ON u.user_id = a.doctor_id
+       WHERE ${where}
+       ORDER BY a.start_at ASC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error fetching availability.', error: err });
+  }
+};
+
+// list of availability slot for all doctor
+const listAllAvailability = async (req, res) => {
+  try {
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+
+    if (actorRole !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Admins only.' });
+    }
+
+    const { doctor_id, from, to } = req.query;
+    let limit = Math.min(parseInt(req.query.limit || '200', 10), 1000);
+    let offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
+
+    const whereParts = ['u.role = "DOCTOR"']; // نضمن إنها دكاترة
+    const params = [];
+
+    if (doctor_id) {
+      whereParts.push('a.doctor_id = ?');
+      params.push(doctor_id);
+    }
+
+    if (from) {
+      const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!f.isValid()) return res.status(400).json({ success: false, message: 'Invalid from date.' });
+      whereParts.push('a.end_at >= ?');
+      params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    if (to) {
+      const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!t.isValid()) return res.status(400).json({ success: false, message: 'Invalid to date.' });
+      whereParts.push('a.start_at <= ?');
+      params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const [rows] = await db.query(
+      `SELECT 
+         a.id, a.doctor_id, a.start_at, a.end_at, a.is_booked,
+         u.full_name AS doctor_name, u.email AS doctor_email, u.status AS doctor_status
+       FROM availability_slots a
+       JOIN \`user\` u ON u.user_id = a.doctor_id
+       ${where}
+       ORDER BY a.start_at ASC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Error fetching availability (admin).', error: err });
+  }
+};
+
+// DELETE slot
+const deleteAvailabilitySlot = async (req, res) => {
+  try {
+    const { doctor_id, slot_id } = req.params;
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const actorId = String(actor.id || '');
+
+    if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctors can only delete their own slots.'
+      });
+    }
+
+    const [[slot]] = await db.query(
+      'SELECT * FROM availability_slots WHERE id = ? AND doctor_id = ?',
+      [slot_id, doctor_id]
+    );
+
+    if (!slot) {
+      return res.status(404).json({
+        success: false,
+        message: 'Slot not found for this doctor.'
+      });
+    }
+
+    if (slot.is_booked !== 0) {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot delete this slot because it is already booked.'
+      });
+    }
+
+    const [del] = await db.query(
+      'DELETE FROM availability_slots WHERE id = ?',
+      [slot_id]
+    );
+
+    if (del.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Slot not found or already deleted.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Availability slot deleted successfully.'
+    });
+
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error deleting availability slot.',
+      error: err
+    });
+  }
+};
+
+//////////////////////////// end feature one //////////////////////////////
+
+
+module.exports = { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor , getDoctorById,createAvailabilitySlot, listAvailabilityForDoctor , listAllAvailability , deleteAvailabilitySlot};

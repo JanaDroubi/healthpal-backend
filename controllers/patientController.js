@@ -5,34 +5,51 @@ const dayjs = require('dayjs');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 dayjs.extend(customParseFormat);
 
+// Helper Function — Format Dates Consistently
+function formatPatientDates(patient) {
+  if (!patient) return null;
+  return {
+    ...patient,
+    dob: patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : null,
+    created_at: patient.created_at
+      ? dayjs(patient.created_at).format('YYYY-MM-DD HH:mm')
+      : null,
+    updated_at: patient.updated_at
+      ? dayjs(patient.updated_at).format('YYYY-MM-DD HH:mm')
+      : null,
+  };
+}
 
-// GET all patient profiles
+//  GET all patient profiles ===========================================================================
 const getAllPatients = async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM patient_profiles');
+    const [rows] = await db.query(`
+      SELECT 
+        u.user_id,
+        u.full_name,
+        u.email,
+        u.phone,
+        u.status,
+        p.*
+      FROM user u
+      LEFT JOIN patient_profiles p ON u.user_id = p.user_id
+      WHERE u.role = 'PATIENT' AND u.status = 'ACTIVE'
+      ORDER BY u.created_at DESC
+    `);
 
     if (rows.length === 0) {
       return res.status(404).send({
         success: false,
-        message: 'No patient profiles found',
+        message: 'No active patient profiles found',
       });
     }
 
-    // تنسيق التواريخ لكل سجل
-    const formattedRows = rows.map(row => ({
-      ...row,
-      dob: row.dob ? dayjs(row.dob).format('DD/MM/YYYY') : null,
-      created_at: row.created_at
-        ? dayjs(row.created_at).format('YYYY-MM-DD HH:mm')
-        : null,
-      updated_at: row.updated_at
-        ? dayjs(row.updated_at).format('YYYY-MM-DD HH:mm')
-        : null,
-    }));
+    const formattedRows = rows.map(formatPatientDates);
 
     res.status(200).send({
       success: true,
       message: 'All patient profiles retrieved successfully',
+      count: formattedRows.length,
       data: formattedRows,
     });
   } catch (error) {
@@ -45,7 +62,7 @@ const getAllPatients = async (req, res) => {
   }
 };
 
-// GET profile by user_id
+// GET profile by user_id ===========================================================================
 const getPatientByUserId = async (req, res) => {
   try {
     const { user_id } = req.params;
@@ -56,25 +73,34 @@ const getPatientByUserId = async (req, res) => {
         message: "Access denied: you can only view your own profile",
       });
     }
-    const [rows] = await db.query('SELECT * FROM patient_profiles WHERE user_id = ?', [user_id]);
-    if (rows.length === 0) return res.status(404).send({ success: false, message: 'Profile not found' });
 
-    const row = rows[0];
+    const [rows] = await db.query(
+      `SELECT * FROM patient_profiles WHERE user_id = ?`,
+      [user_id]
+    );
+    if (rows.length === 0)
+      return res.status(404).send({ success: false, message: 'Profile not found' });
 
-    // عرض بصيغة DD/MM/YYYY بالعربي
-    row.dob = row.dob ? dayjs(row.dob).format('DD/MM/YYYY') : null;
-    row.created_at = row.created_at ? dayjs(row.created_at).format('YYYY-MM-DD HH:mm') : null;
-    row.updated_at = row.updated_at ? dayjs(row.updated_at).format('YYYY-MM-DD HH:mm') : null;
+    const formatted = formatPatientDates(rows[0]);
 
-    res.status(200).send({ success: true, data: row });
+    res.status(200).send({
+      success: true,
+      message: "Patient profile retrieved successfully",
+      data: formatted,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).send({ success: false, message: 'Error fetching profile', error });
+    res.status(500).send({
+      success: false,
+      message: 'Error fetching profile',
+      error,
+    });
   }
 };
 
-// CREATE PATIENT PROFILE
+// CREATE PATIENT PROFILE ===========================================================================
 const createPatientProfile = async (req, res) => {
+  let conn;
   try {
     const {
       user_id, dob, gender, blood_type, height_cm, weight_kg,
@@ -83,7 +109,6 @@ const createPatientProfile = async (req, res) => {
       chronic_conditions_summary, medical_history
     } = req.body;
 
-    // ✅ 0️⃣ تحقق أن المستخدم ينشئ ملفه فقط
     if (req.user.role === "PATIENT" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
@@ -94,26 +119,22 @@ const createPatientProfile = async (req, res) => {
     if (!user_id) {
       return res.status(400).send({
         success: false,
-        message: "User ID is required"
+        message: "User ID is required",
       });
     }
 
-    // 1️⃣ تأكد أن اليوزر موجود
-    const [userRows] = await db.query("SELECT user_id, role FROM user WHERE user_id = ?", [user_id]);
-    if (userRows.length === 0) {
+    const [[user]] = await db.query("SELECT user_id, role FROM user WHERE user_id = ?", [user_id]);
+    if (!user) {
       return res.status(404).send({ success: false, message: "User not found" });
     }
 
-    // 2️⃣ تأكد أن اليوزر دوره PATIENT
-    const user = userRows[0];
     if (user.role !== "PATIENT") {
       return res.status(403).send({
         success: false,
-        message: "Only users with role 'PATIENT' can have a patient profile"
+        message: "Only users with role 'PATIENT' can have a patient profile",
       });
     }
 
-    // 3️⃣ تأكد ما عنده بروفايل مسبقاً
     const [profileExists] = await db.query(
       "SELECT user_id FROM patient_profiles WHERE user_id = ?",
       [user_id]
@@ -121,19 +142,26 @@ const createPatientProfile = async (req, res) => {
     if (profileExists.length > 0) {
       return res.status(409).send({
         success: false,
-        message: "Patient profile already exists for this user"
+        message: "Patient profile already exists for this user",
       });
     }
 
-    // 🧩 4️⃣ صيغة التاريخ: حول "DD/MM/YYYY" إلى "YYYY-MM-DD"
     let formattedDob = null;
     if (dob) {
-      const [day, month, year] = dob.split('/');
-      formattedDob = `${year}-${month}-${day}`;
+      const parsed = dayjs(dob, ['DD/MM/YYYY', 'YYYY-MM-DD'], true);
+      if (!parsed.isValid()) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid date format. Use DD/MM/YYYY or YYYY-MM-DD",
+        });
+      }
+      formattedDob = parsed.format('YYYY-MM-DD');
     }
 
-    // 5️⃣ إنشاء البروفايل
-    await db.query(
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    await conn.query(
       `INSERT INTO patient_profiles (
         user_id, dob, gender, blood_type, height_cm, weight_kg, emergency_contact_phone,
         country, city, marital_status, occupation, preferred_language,
@@ -146,29 +174,45 @@ const createPatientProfile = async (req, res) => {
       ]
     );
 
+    await conn.commit();
+
+    const [[profile]] = await db.query(
+      "SELECT * FROM patient_profiles WHERE user_id = ?",
+      [user_id]
+    );
+    const formattedProfile = formatPatientDates(profile);
+
     return res.status(201).send({
       success: true,
       message: "Patient profile created successfully",
-      user_id
+      data: formattedProfile,
     });
 
   } catch (error) {
+    if (conn) await conn.rollback();
     console.error(error);
-    return res.status(500).send({
+    res.status(500).send({
       success: false,
       message: "Error creating patient profile",
       error,
     });
+  } finally {
+    if (conn) conn.release();
   }
 };
 
-// UPDATE patient profile (partial update)
+// UPDATE patient profile ===========================================================================
+const PROFILE_ALLOWED_FIELDS = new Set([
+  'dob', 'gender', 'blood_type', 'height_cm', 'weight_kg',
+  'emergency_contact_phone', 'country', 'city',
+  'marital_status', 'occupation', 'preferred_language',
+  'allergies_summary', 'chronic_conditions_summary', 'medical_history'
+]);
+
 const updatePatientProfile = async (req, res) => {
   try {
     const { user_id } = req.params;
-    const fields = { ...req.body };
 
-    // المريض ما يعدل إلا نفسه، الأدمن مسموح
     if (req.user.role === "PATIENT" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
@@ -176,32 +220,32 @@ const updatePatientProfile = async (req, res) => {
       });
     }
 
+    const fields = {};
+    for (const key in req.body) {
+      if (PROFILE_ALLOWED_FIELDS.has(key)) fields[key] = req.body[key];
+    }
 
     if (Object.keys(fields).length === 0) {
       return res.status(400).send({
         success: false,
-        message: 'No fields to update'
+        message: 'No valid fields to update',
       });
     }
 
-    // ✅ تحويل التاريخ إذا كان بالصيغة DD/MM/YYYY
     if (fields.dob) {
-      // نحاول نقرأه كتاريخ بصيغة DD/MM/YYYY أولًا
       const parsed = dayjs(fields.dob, ['DD/MM/YYYY', 'YYYY-MM-DD'], true);
-
       if (parsed.isValid()) {
-        fields.dob = parsed.format('YYYY-MM-DD'); // الشكل المناسب لقاعدة البيانات
+        fields.dob = parsed.format('YYYY-MM-DD');
       } else {
         return res.status(400).send({
           success: false,
-          message: 'Invalid date format. Use DD/MM/YYYY or YYYY-MM-DD'
+          message: 'Invalid date format. Use DD/MM/YYYY or YYYY-MM-DD',
         });
       }
     }
 
-
     const setClause = Object.keys(fields)
-      .map(f => `${f} = ?`)
+      .map(key => `${key} = ?`)
       .join(', ');
     const values = Object.values(fields);
 
@@ -213,55 +257,113 @@ const updatePatientProfile = async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).send({
         success: false,
-        message: 'Profile not found'
+        message: 'Profile not found',
       });
     }
 
+    const [[updated]] = await db.query(
+      "SELECT * FROM patient_profiles WHERE user_id = ?",
+      [user_id]
+    );
+    const formatted = formatPatientDates(updated);
+
     res.status(200).send({
       success: true,
-      message: 'Profile updated successfully'
+      message: 'Profile updated successfully',
+      data: formatted,
     });
   } catch (error) {
     console.error(error);
     res.status(500).send({
       success: false,
       message: 'Error updating profile',
-      error
+      error,
     });
   }
 };
 
-// DELETE profile
+// DELETE patient (Soft delete -> make INACTIVE) ===========================================================================
 const deletePatient = async (req, res) => {
+  let conn;
   try {
     const { user_id } = req.params;
 
+   
     if (req.user.role === "PATIENT" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
         message: "Access denied: you can only delete your own profile",
       });
-    } 
+    }
 
-    const [result] = await db.query('DELETE FROM patient_profiles WHERE user_id = ?', [user_id]);
-    if (result.affectedRows === 0)
-      return res.status(404).send({ success: false, message: 'Profile not found' });
-    res.status(200).send({ success: true, message: 'Profile deleted successfully' });
+    
+    const [[user]] = await db.query(
+      "SELECT user_id, role, status FROM `user` WHERE user_id = ? LIMIT 1",
+      [user_id]
+    );
+
+    if (!user) {
+      return res.status(404).send({ success: false, message: "User not found" });
+    }
+
+    if (String(user.role).toUpperCase() !== "PATIENT") {
+      return res.status(403).send({
+        success: false,
+        message: "Target user is not a patient",
+      });
+    }
+
+    
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    
+    const [delProfile] = await conn.query(
+      "DELETE FROM patient_profiles WHERE user_id = ?",
+      [user_id]
+    );
+
+    
+    const [updUser] = await conn.query(
+      "UPDATE `user` SET status = 'INACTIVE', updated_at = NOW() WHERE user_id = ?",
+      [user_id]
+    );
+
+    await conn.commit();
+
+    return res.status(200).send({
+      success: true,
+      message: "Patient profile deleted and user set to INACTIVE.",
+      meta: {
+        profile_deleted_rows: delProfile.affectedRows,
+        user_updated_rows: updUser.affectedRows,
+        was_already_inactive: String(user.status || '').toUpperCase() === 'INACTIVE'
+      }
+    });
+
   } catch (error) {
-    res.status(500).send({ success: false, message: 'Error deleting profile', error });
+    if (conn) {
+      try { await conn.rollback(); } catch (_) {}
+    }
+    console.error(error);
+    res.status(500).send({
+      success: false,
+      message: "Error deactivating patient and deleting profile",
+      error,
+    });
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 
-// GET patient statistics
+//  GET patient statistics ===========================================================================
 const getPatientsStats = async (req, res) => {
   try {
-    // 1️⃣ إجمالي عدد المرضى
     const [[{ totalPatients }]] = await db.query(`
       SELECT COUNT(*) AS totalPatients FROM patient_profiles
     `);
 
-    // 2️⃣ التوزيع حسب المدينة
     const [cityRows] = await db.query(`
       SELECT city, COUNT(*) AS count
       FROM patient_profiles
@@ -269,45 +371,127 @@ const getPatientsStats = async (req, res) => {
       GROUP BY city
       ORDER BY count DESC
     `);
-    const byCity = {};
-    cityRows.forEach(row => {
-      byCity[row.city] = row.count;
-    });
 
-    // 3️⃣ التوزيع حسب الجنس
+    const byCity = {};
+    cityRows.forEach(row => (byCity[row.city] = row.count));
+
     const [genderRows] = await db.query(`
       SELECT gender, COUNT(*) AS count
       FROM patient_profiles
       WHERE gender IS NOT NULL
       GROUP BY gender
     `);
-    const byGender = {};
-    genderRows.forEach(row => {
-      byGender[row.gender] = row.count;
-    });
 
-    // 4️⃣ ممكن تضيف لاحقًا توزيع حسب فصيلة الدم أو الحالة الاجتماعية بنفس النمط
+    const byGender = {};
+    genderRows.forEach(row => (byGender[row.gender] = row.count));
 
     res.status(200).send({
       success: true,
       message: "Patient statistics retrieved successfully",
-      data: {
-        totalPatients,
-        byCity,
-        byGender
-      }
+      data: { totalPatients, byCity, byGender },
     });
-
   } catch (error) {
     console.error(error);
     res.status(500).send({
       success: false,
       message: "Error fetching patient statistics",
-      error
+      error,
+    });
+  }
+};
+////////////////// feature one //////////////////
+//get all available slot of doctors
+const listAvailableForPatients = async (req, res) => {
+  try {
+    let {
+      specialty,
+      gender,
+      from,
+      to,
+      limit = '100',
+      offset = '0'
+    } = req.query;
+
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    const whereParts = [
+      'a.is_booked = 0',                  
+      "u.role = 'DOCTOR'",
+      "u.status = 'ACTIVE'",
+      'a.end_at >= NOW()'               
+    ];
+    const params = [];
+
+    if (specialty) {
+      whereParts.push('COALESCE(dp.specialty, "") LIKE ?');
+      params.push(`%${specialty}%`);
+    }
+
+    if (gender) {
+      whereParts.push('COALESCE(dp.gender, "") = ?');
+      params.push(gender);
+    }
+
+    if (from) {
+      const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!f.isValid()) {
+        return res.status(400).json({ success: false, message: 'Invalid from date.' });
+      }
+      whereParts.push('a.end_at >= ?');
+      params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    if (to) {
+      const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
+      if (!t.isValid()) {
+        return res.status(400).json({ success: false, message: 'Invalid to date.' });
+      }
+      whereParts.push('a.start_at <= ?');
+      params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
+    }
+
+    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+    const [rows] = await db.query(
+      `SELECT
+         a.id,
+         a.doctor_id,
+         a.start_at,
+         a.end_at,
+         a.is_booked,
+         u.full_name   AS doctor_name,
+         u.email       AS doctor_email,
+         dp.specialty,
+         dp.gender
+       FROM availability_slots a
+       JOIN \`user\` u       ON u.user_id = a.doctor_id
+       LEFT JOIN doctor_profiles dp ON dp.user_id = a.doctor_id
+       ${where}
+       ORDER BY a.start_at ASC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error fetching available slots for patients.',
+      error: err
     });
   }
 };
 
+ 
+
+
+////////////////// end feature one //////////////////
 
 module.exports = {
   getAllPatients,
@@ -315,6 +499,6 @@ module.exports = {
   createPatientProfile,
   updatePatientProfile,
   deletePatient,
-  getPatientsStats
+  getPatientsStats,
+  listAvailableForPatients
 };
-
