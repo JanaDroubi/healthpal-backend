@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
-const { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor, getDoctorById, createAvailabilitySlot, listAvailabilityForDoctor, listAllAvailability, deleteAvailabilitySlot } = require('../controllers/doctorController');
+const { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor, getDoctorById, createAvailabilitySlot, listAvailabilityForDoctor, listAllAvailability, deleteAvailabilitySlot, updateAvailabilitySlot } = require('../controllers/doctorController');
 const { authorizeRoles } = require("../middleware/authorizeRoles");
 
 
@@ -24,6 +24,8 @@ router.get('/availabilitySlot/:doctor_id', requireAuth,authorizeRoles('DOCTOR','
 router.get('/availabilitySlot', requireAuth,authorizeRoles('ADMIN'), listAllAvailability);
 // DELETE slot
 router.delete('/deleteSlot/:doctor_id/:slot_id', requireAuth,authorizeRoles('DOCTOR','ADMIN'), deleteAvailabilitySlot);
+// Update Slot
+router.put('/updateAvailabilitySlot/:doctor_id/slots/:slot_id',requireAuth,authorizeRoles('DOCTOR','ADMIN'),updateAvailabilitySlot);
 
 ///////end feature one /////////
 

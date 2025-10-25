@@ -1,5 +1,5 @@
 const express = require('express');
-const { bookConsultation, deleteConsultation, listMyConsultations, listConsultationsForAdmin, updatePendingConsultation, listDoctorConsultations, updateConsultationStatusByDoctor } = require('../controllers/consultationController');
+const { bookConsultation, deleteConsultation, listMyConsultations, listConsultationsForAdmin, updatePendingConsultation, listDoctorConsultations, updateConsultationStatusByDoctor, updateConsultationByAdmin } = require('../controllers/consultationController');
 const { requireAuth } = require('../middleware/auth');
 const { authorizeRoles } = require('../middleware/authorizeRoles');
 const router = express.Router();
@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/consultationsBook',requireAuth,authorizeRoles('PATIENT', 'ADMIN'),bookConsultation);
 
 // Delete Booking 
-router.delete('/deleteConsultations/:consultation_id',requireAuth,authorizeRoles('PATIENT'),deleteConsultation);
+router.delete('/deleteConsultations/:consultation_id',requireAuth,authorizeRoles('PATIENT', 'ADMIN'),deleteConsultation);
 
 //view consultation
 router.get('/viewPaitentConsultation',requireAuth,authorizeRoles('PATIENT'),listMyConsultations);
@@ -23,8 +23,11 @@ router.put('/updatePendingConsultation/:consultation_id',requireAuth, authorizeR
 //List of Doctor Consultations
 router.get('/viewDoctorConsultation',requireAuth,authorizeRoles('DOCTOR'),listDoctorConsultations);
 
-//Update
+// Update By Doctor
 router.put('/updateDoctorConsultation/:consultation_id',requireAuth, authorizeRoles('DOCTOR'), updateConsultationStatusByDoctor)
+
+//Update By Admin
+router.put('/updateConsultationByAdmin/:consultation_id',requireAuth, authorizeRoles('ADMIN'), updateConsultationByAdmin)
 
 
 module.exports = router;
