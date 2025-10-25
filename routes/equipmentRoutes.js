@@ -10,7 +10,7 @@ const {
 
 const { requireAuth } = require("../middleware/auth");
 const { authorizeRoles } = require("../middleware/authorizeRoles");
-const ROLES = require("../config/roles");
+const ROLES = require("../constants/roles");
 
 // ✅ Get all equipment - any authenticated user
 router.get("/", requireAuth, getAllEquipment);

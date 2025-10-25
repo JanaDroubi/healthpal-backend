@@ -1,8 +1,9 @@
+const dotenv = require("dotenv");
 const express = require("express");
 const colors = require("colors");
 const morgan = require("morgan");
-const dotenv = require("dotenv");
 const mySqlPool = require("./config/db");
+
 
 //configure dotenv
 dotenv.config();
