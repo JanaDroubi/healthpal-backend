@@ -4,7 +4,6 @@ const colors = require("colors");
 const morgan = require("morgan");
 const mySqlPool = require("./config/db");
 
-
 //configure dotenv
 dotenv.config();
 
@@ -32,11 +31,8 @@ app.use("/api/feedbacks", require("./routes/patientFeedback"));
 app.use("/api/medication", require("./routes/medicationRoutes"));
 app.use("/api/equipment", require("./routes/equipmentRoutes"));
 
-
-
 app.get("/test", (req, res) => {
   res.send("hello world");
-
 });
 
 //port
@@ -44,15 +40,17 @@ const PORT = process.env.PORT || 3100;
 
 //contidionaly Listen
 mySqlPool
-  .query("SELECT 1")
-  .then(() => {
-    //MY SQL
-    console.log("MYSQL DB Connected".bgCyan.white);
-    //listen
-    app.listen(PORT, () => {
-      console.log(`Server Running on port ${PORT}`.bgMagenta.white);
-    });
+  .query("SELECT DATABASE() AS db")
+  .then(([rows]) => {
+    if (rows[0].db) {
+      console.log(`MYSQL Connected to database: ${rows[0].db}`.bgCyan.white);
+      app.listen(PORT, () => {
+        console.log(`Server Running on port ${PORT}`.bgMagenta.white);
+      });
+    } else {
+      console.log("MYSQL connected but no database selected!".bgRed.white);
+    }
   })
   .catch((error) => {
-    console.log(error);
+    console.log("MYSQL Connection Failed: ", error);
   });
