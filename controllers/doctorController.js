@@ -881,7 +881,214 @@ const deleteAvailabilitySlot = async (req, res) => {
   }
 };
 
+//update slot
+const updateAvailabilitySlot = async (req, res) => {
+  let conn;
+  try {
+    const { doctor_id, slot_id } = req.params;
+    const actor = req.user || {};
+    const actorRole = String(actor.role || '').trim().toUpperCase();
+    const actorId = String(actor.id || '');
+
+    const { start_at, end_at, is_booked } = req.body || {};
+
+    // require at least one field to update
+    if (typeof start_at === 'undefined' && typeof end_at === 'undefined' && typeof is_booked === 'undefined') {
+      return res.status(400).json({
+        success: false,
+        message: 'No fields to update. Provide start_at and/or end_at (and admins may set is_booked).'
+      });
+    }
+
+    // doctors cannot change is_booked
+    if (actorRole === 'DOCTOR' && typeof is_booked !== 'undefined') {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctors are not allowed to change is_booked.'
+      });
+    }
+
+    // doctor may only operate on his own doctor_id
+    if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctors can only update their own slots.'
+      });
+    }
+
+    conn = await db.getConnection();
+    await conn.beginTransaction();
+
+    // lock and fetch current slot
+    const [slotRows] = await conn.query(
+      'SELECT * FROM availability_slots WHERE id = ? FOR UPDATE',
+      [slot_id]
+    );
+    if (slotRows.length === 0) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, message: 'Slot not found.' });
+    }
+    const slot = slotRows[0];
+
+    // ensure slot belongs to provided doctor_id
+    if (String(slot.doctor_id) !== String(doctor_id)) {
+      await conn.rollback();
+      return res.status(403).json({ success: false, message: 'Slot does not belong to this doctor.' });
+    }
+
+    // if actor is DOCTOR ensure slot not booked
+    if (actorRole === 'DOCTOR' && Number(slot.is_booked) === 1) {
+      await conn.rollback();
+      return res.status(403).json({ success: false, message: 'Cannot modify a booked slot.' });
+    }
+
+    // parse and validate new start/end times (if provided), otherwise use existing
+    let newStart = slot.start_at ? dayjs(slot.start_at) : null;
+    let newEnd = slot.end_at ? dayjs(slot.end_at) : null;
+
+    if (typeof start_at !== 'undefined' && start_at !== null && start_at !== '') {
+      const p = dayjs(start_at, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD'], true);
+      if (!p.isValid()) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Invalid start_at format. Use YYYY-MM-DD HH:mm or YYYY-MM-DD HH:mm:ss.' });
+      }
+      newStart = p;
+    }
+
+    if (typeof end_at !== 'undefined' && end_at !== null && end_at !== '') {
+      const p = dayjs(end_at, ['YYYY-MM-DD HH:mm', 'YYYY-MM-DD HH:mm:ss', 'YYYY-MM-DD'], true);
+      if (!p.isValid()) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, message: 'Invalid end_at format. Use YYYY-MM-DD HH:mm or YYYY-MM-DD HH:mm:ss.' });
+      }
+      newEnd = p;
+    }
+
+    // require both start and end (either existing or provided)
+    if (!newStart || !newEnd) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Both start_at and end_at must be present (either existing or in request body).'
+      });
+    }
+
+    // ensure start < end
+    if (!newStart.isBefore(newEnd)) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'start_at must be before end_at.'
+      });
+    }
+
+    // do not allow slot entirely in the past
+    const [[nowRow]] = await conn.query('SELECT NOW() AS nowts');
+    const now = dayjs(nowRow.nowts);
+    if (newEnd.isBefore(now)) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot set slot entirely in the past.'
+      });
+    }
+
+    // check overlap with other slots for same doctor (exclude current slot)
+    const [overlap] = await conn.query(
+      `SELECT id FROM availability_slots
+         WHERE doctor_id = ?
+           AND id <> ?
+           AND start_at < ?
+           AND end_at   > ?
+         LIMIT 1`,
+      [doctor_id, slot_id, newEnd.format('YYYY-MM-DD HH:mm:ss'), newStart.format('YYYY-MM-DD HH:mm:ss')]
+    );
+    if (overlap.length > 0) {
+      await conn.rollback();
+      return res.status(409).json({
+        success: false,
+        message: 'New time overlaps with another availability slot for this doctor.'
+      });
+    }
+
+    // build update fields
+    const updates = [];
+    const params = [];
+
+    updates.push('start_at = ?');
+    params.push(newStart.format('YYYY-MM-DD HH:mm:ss'));
+
+    updates.push('end_at = ?');
+    params.push(newEnd.format('YYYY-MM-DD HH:mm:ss'));
+
+    // admin may change is_booked if provided
+    let willSetIsBooked = null; // null = not provided, otherwise 0/1
+    if (actorRole === 'ADMIN' && typeof is_booked !== 'undefined') {
+      const ib = (is_booked === true || String(is_booked).toLowerCase() === 'true' || String(is_booked) === '1') ? 1 : 0;
+      updates.push('is_booked = ?');
+      params.push(ib);
+      willSetIsBooked = ib;
+    }
+
+
+    params.push(slot_id);
+
+    // perform the update
+    const sql = `UPDATE availability_slots SET ${updates.join(', ')} WHERE id = ?`;
+    const [updResult] = await conn.query(sql, params);
+
+    // default canceled count
+    let canceledCount = 0;
+
+    // If admin explicitly changed is_booked from 1 -> 0, cancel related consultations
+    if (actorRole === 'ADMIN' && willSetIsBooked !== null) {
+      const prevBooked = Number(slot.is_booked) === 1;
+      const newBooked = willSetIsBooked === 1;
+
+      if (prevBooked && !newBooked) {
+        // cancel consultations in  CONFIRMED
+        const [cancelRes] = await conn.query(
+          `UPDATE consultations
+             SET status = 'CANCELLED'
+           WHERE slot_id = ?
+             AND status IN ('CONFIRMED')`,
+          [slot_id]
+        );
+        // mysql returns affectedRows in OkPacket
+        canceledCount = cancelRes && (cancelRes.affectedRows || 0);
+      }
+    }
+
+    // fetch updated slot
+    const [[updatedRow]] = await conn.query('SELECT * FROM availability_slots WHERE id = ?', [slot_id]);
+
+    await conn.commit();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Slot updated successfully.',
+      data: updatedRow,
+      meta: {
+        canceled_consultations: canceledCount
+      }
+    });
+  } catch (err) {
+    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    console.error(err);
+    return res.status(500).json({
+      success: false,
+      message: 'Error updating slot.',
+      error: err
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
 //////////////////////////// end feature one //////////////////////////////
 
 
-module.exports = { createDoctorProfile, updateDoctorProfile, getAllDoctors, deactivateDoctor , getDoctorById,createAvailabilitySlot, listAvailabilityForDoctor , listAllAvailability , deleteAvailabilitySlot};
+module.exports = { createDoctorProfile, updateDoctorProfile, 
+  getAllDoctors, deactivateDoctor , getDoctorById,createAvailabilitySlot, 
+  listAvailabilityForDoctor , listAllAvailability , deleteAvailabilitySlot ,
+updateAvailabilitySlot};

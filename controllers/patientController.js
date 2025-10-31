@@ -404,35 +404,63 @@ const getPatientsStats = async (req, res) => {
 const listAvailableForPatients = async (req, res) => {
   try {
     let {
-      specialty,
-      gender,
-      from,
-      to,
+      specialty,       // نص جزئي
+      gender,          // M/F أو male/female أو ذكر/أنثى
+      from,            // YYYY-MM-DD أو ISO
+      to,              // YYYY-MM-DD أو ISO
+      q,               // بحث بالاسم (اختياري)
+      min_minutes,     // مدة أدنى (اختياري)
+      max_minutes,     // مدة أقصى (اختياري)
+      sort_by = 'start_at',  // start_at | end_at | doctor_name
+      order = 'asc',         // asc | desc
       limit = '100',
       offset = '0'
     } = req.query;
 
-    limit = Math.min(parseInt(limit, 10) || 100, 500);
-    offset = Math.max(parseInt(offset, 10) || 0, 0);
+    // pagination bounds
+    limit  = Math.min(parseInt(limit, 10)  || 100, 500);
+    offset = Math.max(parseInt(offset, 10) || 0,   0);
 
+    // تطبيع/تحضير
+    const safeOrder = String(order).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+    const sortMap = {
+      start_at: 'a.start_at',
+      end_at: 'a.end_at',
+      doctor_name: 'u.full_name'
+    };
+    const sortCol = sortMap[String(sort_by)] || 'a.start_at';
+
+    // قواعد أساسية: غير محجوز + دكتور فعّال + مستقبل فقط
     const whereParts = [
-      'a.is_booked = 0',                  
+      'a.is_booked = 0',
       "u.role = 'DOCTOR'",
       "u.status = 'ACTIVE'",
-      'a.end_at >= NOW()'               
+      'a.end_at >= NOW()'
     ];
     const params = [];
 
+    // فلترة التخصص (case-insensitive)
     if (specialty) {
-      whereParts.push('COALESCE(dp.specialty, "") LIKE ?');
-      params.push(`%${specialty}%`);
+      whereParts.push('COALESCE(LOWER(dp.specialty), "") LIKE ?');
+      params.push(`%${String(specialty).toLowerCase()}%`);
     }
 
+    // فلترة الجنس: نحول كل القيم ل M/F
     if (gender) {
+      const gRaw = String(gender).trim().toLowerCase();
+      const mapGender = {
+        m: 'M', male: 'M', 'ذكر': 'M',
+        f: 'F', female: 'F', 'انثى': 'F', 'أنثى': 'F'
+      };
+      const g = mapGender[gRaw];
+      if (!g) {
+        return res.status(400).json({ success: false, message: "Invalid gender. Use M/F or male/female." });
+      }
       whereParts.push('COALESCE(dp.gender, "") = ?');
-      params.push(gender);
+      params.push(g);
     }
 
+    // تاريخ from
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!f.isValid()) {
@@ -442,6 +470,7 @@ const listAvailableForPatients = async (req, res) => {
       params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
+    // تاريخ to
     if (to) {
       const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!t.isValid()) {
@@ -451,7 +480,31 @@ const listAvailableForPatients = async (req, res) => {
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+    // بحث بالاسم
+    if (q) {
+      whereParts.push('LOWER(u.full_name) LIKE ?');
+      params.push(`%${String(q).toLowerCase()}%`);
+    }
+
+    // فلترة على المدة
+    if (min_minutes) {
+      const mm = parseInt(min_minutes, 10);
+      if (!Number.isFinite(mm) || mm < 0) {
+        return res.status(400).json({ success: false, message: 'min_minutes must be a non-negative number.' });
+      }
+      whereParts.push('TIMESTAMPDIFF(MINUTE, a.start_at, a.end_at) >= ?');
+      params.push(mm);
+    }
+    if (max_minutes) {
+      const mx = parseInt(max_minutes, 10);
+      if (!Number.isFinite(mx) || mx <= 0) {
+        return res.status(400).json({ success: false, message: 'max_minutes must be a positive number.' });
+      }
+      whereParts.push('TIMESTAMPDIFF(MINUTE, a.start_at, a.end_at) <= ?');
+      params.push(mx);
+    }
+
+    const where = `WHERE ${whereParts.join(' AND ')}`;
 
     const [rows] = await db.query(
       `SELECT
@@ -460,15 +513,16 @@ const listAvailableForPatients = async (req, res) => {
          a.start_at,
          a.end_at,
          a.is_booked,
+         TIMESTAMPDIFF(MINUTE, a.start_at, a.end_at) AS duration_minutes,
          u.full_name   AS doctor_name,
          u.email       AS doctor_email,
          dp.specialty,
          dp.gender
        FROM availability_slots a
-       JOIN \`user\` u       ON u.user_id = a.doctor_id
+       JOIN \`user\` u            ON u.user_id = a.doctor_id
        LEFT JOIN doctor_profiles dp ON dp.user_id = a.doctor_id
        ${where}
-       ORDER BY a.start_at ASC
+       ORDER BY ${sortCol} ${safeOrder}
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );

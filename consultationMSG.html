@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>Consultation Chat · Test Client</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body{font-family:system-ui,Arial;margin:24px;background:#fafafa}
+    .card{background:#fff;border:1px solid #eee;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.05);padding:16px;max-width:780px}
+    .row{display:flex;gap:8px;margin:8px 0;align-items:center}
+    input,button{padding:10px 12px;border-radius:10px;border:1px solid #ddd}
+    input{flex:1}
+    button{cursor:pointer}
+    .log{height:320px;overflow:auto;border:1px solid #eee;border-radius:10px;background:#fff;padding:10px}
+    .msg{margin:6px 0;padding:8px 10px;border-radius:10px;max-width:80%}
+    .me{background:#e8f7ff;align-self:flex-end}
+    .other{background:#f3f3f3;align-self:flex-start}
+    .meta{font-size:12px;color:#888;margin-top:2px}
+    .row.wrap{flex-wrap:wrap}
+    label{font-size:13px;color:#666}
+    .warn{color:#b35a00;font-size:13px}
+    .err{color:#c92a2a;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Consultation Chat · Test Client</h2>
+
+    <div class="row wrap">
+      <label>JWT Token</label>
+      <input id="token" placeholder="Token" />
+    </div>
+
+    <div class="row">
+      <input id="consultId" type="number" placeholder="Consultation Id" />
+      <button id="connectBtn">Connect & Join</button>
+    </div>
+
+    <div id="status" class="row"></div>
+
+    <div class="log" id="log" style="display:flex;flex-direction:column;"></div>
+
+    <div class="row">
+      <input id="msg" placeholder="Send msg" />
+      <button id="sendBtn" disabled>Send</button>
+    </div>
+  </div>
+
+  <script>
+    function b64urlToB64(s){return s.replace(/-/g,'+').replace(/_/g,'/')}
+    function decodeJwt(token){ try{ return JSON.parse(atob(b64urlToB64(token.split('.')[1])));}catch{ return {}; } }
+
+    let socket = null;
+    let myUserId = null;
+    let currentConsultId = null;
+
+    const $ = (id) => document.getElementById(id);
+    const log = (html) => { const l=$('log'); l.insertAdjacentHTML('beforeend', html); l.scrollTop=l.scrollHeight; };
+
+    (function restore(){
+      const t = localStorage.getItem('chat_token');
+      const c = localStorage.getItem('chat_consult_id');
+      if (t) $('token').value = t;
+      if (c) $('consultId').value = c;
+    })();
+
+    $('connectBtn').onclick = () => {
+      const token = $('token').value.trim();
+      const consultId = Number($('consultId').value.trim());
+      if(!token || !consultId) return alert('أدخلي التوكن و رقم الاستشارة');
+
+      localStorage.setItem('chat_token', token);
+      localStorage.setItem('chat_consult_id', consultId);
+
+      const payload = decodeJwt(token);
+      myUserId = Number(payload.id ?? payload.user_id ?? 0);
+      if (!myUserId) return alert('التوكن لا يحتوي user id');
+
+      currentConsultId = consultId;
+      if (socket) socket.close();
+
+      socket = io('http://localhost:3100', {
+        transports: ['websocket'],
+        auth: { token }
+      });
+
+      socket.on('connect', () => {
+        $('status').className = '';
+        $('status').textContent = `Connected: ${socket.id} · user_id=${myUserId}`;
+        socket.emit('consultation:join', { consultationId: consultId });
+      });
+
+      socket.on('consultation:joined', (d) => {
+        $('status').className = '';
+        $('status').textContent = `Joined consultation ${d.consultationId}`;
+        $('sendBtn').disabled = false;
+        $('msg').focus();
+      });
+
+      socket.on('consultation:info', (e) => {
+        $('status').className = 'warn';
+        $('status').textContent = e.message;
+      });
+
+      socket.on('consultation:error', (e) => {
+        $('status').className = 'err';
+        $('status').textContent = `Error: ${e.message}`;
+        // منع الإرسال عند الخطأ
+        $('sendBtn').disabled = true;
+      });
+
+      socket.on('message:new', (m) => {
+        const isMe = (typeof m.senderId !== 'undefined')
+          ? (Number(m.senderId) === Number(myUserId))
+          : false;
+        const whoClass = isMe ? 'me' : 'other';
+        const text = m.text || m.translated || '';
+        log(`<div class="msg ${whoClass}">
+              <div>${text}</div>
+              <div class="meta">${isMe ? 'أنا' : 'الطرف الآخر'} · ${new Date(m.at || Date.now()).toLocaleTimeString()}</div>
+            </div>`);
+      });
+
+      socket.on('disconnect', () => {
+        $('status').className = 'err';
+        $('status').textContent = 'Disconnected';
+        $('sendBtn').disabled = true;
+      });
+    };
+
+    function sendNow(){
+      const t = $('msg').value.trim();
+      if(!t || !socket || !currentConsultId) return;
+      socket.emit('message:send', { consultationId: currentConsultId, text: t });
+      $('msg').value = '';
+      $('msg').focus();
+    }
+
+    $('sendBtn').onclick = sendNow;
+    $('msg').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); sendNow(); }
+    });
+  </script>
+</body>
+</html>
