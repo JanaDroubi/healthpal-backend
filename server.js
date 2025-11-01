@@ -20,6 +20,14 @@ app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
 app.use("/api/consultations", require("./routes/consultationRoutes"));
 app.use("/api/messages", require("./routes/messageRoutes"));
+app.use("/api/donors", require("./routes/donorRoutes"));
+app.use("/api/sponsorship", require("./routes/sponsorshipRoutes"));
+app.use("/api/donations", require("./routes/donationRoutes"));
+app.use("/api/invoices", require("./routes/invoiceRoutes"));
+app.use("/api/receipts", require("./routes/receiptRoutes"));
+app.use("/api/updates", require("./routes/recoveryUpdates"));
+app.use("/api/feedbacks", require("./routes/patientFeedback"));
+app.use("/api/equipment", require("./routes/equipmentRoutes"));
 app.use("/api/medication", require("./routes/medicationRoutes"));
 app.use(
   "/api/medication-requests",
@@ -29,6 +37,12 @@ app.use("/api/inventory", require("./routes/inventoryRouters"));
 
 app.get("/test", (req, res) => {
   res.send("hello world");
+app.use("/api/ai", require("./routes/aiRoutes"));
+app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
+
+
+app.get('/test', (req, res) => {
+    res.send('hello world');
 });
 
 // ==== أضفنا السيرفر + السوكِت هنا فقط ====
