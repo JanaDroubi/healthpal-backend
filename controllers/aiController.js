@@ -2,7 +2,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const dayjs = require("dayjs");
 const db = require("../config/db");
 
-// إعداد Google Gemini
+
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
 /**

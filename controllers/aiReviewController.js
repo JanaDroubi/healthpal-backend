@@ -8,7 +8,6 @@ const dayjs = require("dayjs");
  */
 const getAIAnalysesByType = async (req, res) => {
   try {
-    // تأكيد تسجيل الدخول
     if (!req.user) {
       return res.status(401).send({
         success: false,
@@ -16,7 +15,6 @@ const getAIAnalysesByType = async (req, res) => {
       });
     }
 
-    // التحقق من الرول
     const { role, id: doctorId } = req.user;
     if (role !== "DOCTOR" && role !== "ADMIN") {
       return res.status(403).send({
@@ -25,7 +23,6 @@ const getAIAnalysesByType = async (req, res) => {
       });
     }
 
-    // جلب نوع التحليل من الـ URL
     const { type } = req.params;
     const analysisType = type?.toUpperCase();
 
@@ -38,7 +35,6 @@ const getAIAnalysesByType = async (req, res) => {
 
     let rows = [];
 
-    // 🔹 الحالة 1: تحليلات الأعراض
     if (analysisType === "SYMPTOMS") {
       [rows] = await db.query(`
         SELECT 
@@ -61,7 +57,6 @@ const getAIAnalysesByType = async (req, res) => {
       `);
     }
 
-    // 🔹 الحالة 2: تحاليل المختبر
     if (analysisType === "LAB") {
       [rows] = await db.query(`
         SELECT 
@@ -84,7 +79,6 @@ const getAIAnalysesByType = async (req, res) => {
       `);
     }
 
-    // 🔹 الحالة 3: اقتراحات الأدوية
     if (analysisType === "MEDICATION") {
       [rows] = await db.query(`
         SELECT 
@@ -138,7 +132,6 @@ const getAIAnalysesByType = async (req, res) => {
  */
 const getAIAnalysisDetails = async (req, res) => {
   try {
-    // التحقق من تسجيل الدخول
     if (!req.user) {
       return res.status(401).send({
         success: false,
@@ -146,7 +139,6 @@ const getAIAnalysisDetails = async (req, res) => {
       });
     }
 
-    // التحقق من الصلاحيات
     const { role } = req.user;
     if (role !== "DOCTOR" && role !== "ADMIN") {
       return res.status(403).send({
@@ -155,7 +147,6 @@ const getAIAnalysisDetails = async (req, res) => {
       });
     }
 
-    // قراءة النوع والمعرّف من الـ URL
     const { type, id } = req.params;
     const analysisType = type?.toUpperCase();
 
@@ -169,7 +160,6 @@ const getAIAnalysisDetails = async (req, res) => {
     let query = "";
     let rows = [];
 
-    // 🔹 الحالة 1: تحليل أعراض
     if (analysisType === "SYMPTOMS") {
       query = `
         SELECT 
@@ -192,7 +182,6 @@ const getAIAnalysisDetails = async (req, res) => {
       `;
     }
 
-    // 🔹 الحالة 2: تحليل مختبر
     if (analysisType === "LAB") {
       query = `
         SELECT 
@@ -215,7 +204,7 @@ const getAIAnalysisDetails = async (req, res) => {
       `;
     }
 
-    // 🔹 الحالة 3: اقتراحات أدوية
+
     if (analysisType === "MEDICATION") {
       query = `
         SELECT 
@@ -276,7 +265,6 @@ const getAIAnalysisDetails = async (req, res) => {
  */
 const reviewAIAnalysis = async (req, res) => {
   try {
-    // التأكد من تسجيل الدخول
     if (!req.user) {
       return res.status(401).send({
         success: false,
@@ -286,7 +274,6 @@ const reviewAIAnalysis = async (req, res) => {
 
     const { role, id: doctorId } = req.user;
 
-    // التحقق من أن المستخدم دكتور أو أدمن
     if (role !== "DOCTOR" && role !== "ADMIN") {
       return res.status(403).send({
         success: false,
@@ -294,7 +281,6 @@ const reviewAIAnalysis = async (req, res) => {
       });
     }
 
-    // البيانات القادمة من الـ body
     const {
       analysis_type,
       analysis_id,
@@ -304,7 +290,6 @@ const reviewAIAnalysis = async (req, res) => {
       doctor_confidence,
     } = req.body;
 
-    // تحقق من وجود الحقول الأساسية
     if (!analysis_type || !analysis_id || !doctor_feedback) {
       return res.status(400).send({
         success: false,
@@ -312,7 +297,6 @@ const reviewAIAnalysis = async (req, res) => {
       });
     }
 
-    // تأكيد أن النوع صحيح
     const validTypes = ["SYMPTOMS", "LAB", "MEDICATION"];
     if (!validTypes.includes(analysis_type.toUpperCase())) {
       return res.status(400).send({
@@ -321,7 +305,6 @@ const reviewAIAnalysis = async (req, res) => {
       });
     }
 
-    // إدخال المراجعة في جدول ai_doctor_review
     await db.query(
       `
       INSERT INTO ai_doctor_review 
@@ -368,7 +351,6 @@ const reviewAIAnalysis = async (req, res) => {
  */
 const getPatientAIResults = async (req, res) => {
   try {
-    // ✅ التحقق من تسجيل الدخول
     if (!req.user) {
       return res.status(401).send({
         success: false,
@@ -376,11 +358,10 @@ const getPatientAIResults = async (req, res) => {
       });
     }
 
-    // ✅ استخراج بيانات من URL
     const { patient_id, type } = req.params;
     const analysisType = type?.toUpperCase();
 
-    // ✅ تحقق من نوع التحليل
+
     if (!["SYMPTOMS", "LAB", "MEDICATION"].includes(analysisType)) {
       return res.status(400).send({
         success: false,
@@ -388,7 +369,6 @@ const getPatientAIResults = async (req, res) => {
       });
     }
 
-    // ✅ تحقق من الصلاحية
     const { role, id: userId } = req.user;
     if (role === "PATIENT" && userId != patient_id) {
       return res.status(403).send({
@@ -399,7 +379,6 @@ const getPatientAIResults = async (req, res) => {
 
     let rows = [];
 
-    // 🔹 الحالة 1: تحليل الأعراض (SYMPTOMS)
     if (analysisType === "SYMPTOMS") {
       [rows] = await db.query(`
         SELECT 
@@ -428,7 +407,6 @@ const getPatientAIResults = async (req, res) => {
       `, [patient_id]);
     }
 
-    // 🔹 الحالة 2: تحليل مختبر (LAB)
     if (analysisType === "LAB") {
       [rows] = await db.query(`
         SELECT 
@@ -457,7 +435,6 @@ const getPatientAIResults = async (req, res) => {
       `, [patient_id]);
     }
 
-    // 🔹 الحالة 3: اقتراح أدوية (MEDICATION)
     if (analysisType === "MEDICATION") {
       [rows] = await db.query(`
         SELECT 
