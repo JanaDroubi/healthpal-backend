@@ -15,6 +15,7 @@ const router = express.Router();
 
 
 
+
 //GET ALL USERS LIST || GET
 router.get('/getallusers', requireAuth, authorizeRoles('ADMIN'), getUsers);
 
