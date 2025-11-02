@@ -696,8 +696,6 @@ const createAvailabilitySlot = async (req, res) => {
 const listAvailabilityForDoctor = async (req, res) => {
   try {
     const { doctor_id } = req.params;
-
-    // التحقق من صاحب التوكن
     const actor = req.user || {};
     const actorRole = String(actor.role || '').trim().toUpperCase();
     const actorId = String(actor.id || '');
@@ -705,12 +703,9 @@ const listAvailabilityForDoctor = async (req, res) => {
     if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
       return res.status(403).json({ success: false, message: 'Doctors can only view their own availability.' });
     }
-
-    // تأكد الطبيب موجود و ACTIVE
     const okDoc = await ensureDoctorActive(doctor_id);
     if (!okDoc.ok) return res.status(okDoc.code).json({ success: false, message: okDoc.msg });
 
-    // فلاتر اختيارية
     const { from, to } = req.query;
     let limit = Math.min(parseInt(req.query.limit || '100', 10), 500);
     let offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
@@ -721,7 +716,7 @@ const listAvailabilityForDoctor = async (req, res) => {
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!f.isValid()) return res.status(400).json({ success: false, message: 'Invalid from date.' });
-      // أي فتحة تمتد بعد بداية المدى
+      
       where += ' AND a.end_at >= ?';
       params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
@@ -729,7 +724,7 @@ const listAvailabilityForDoctor = async (req, res) => {
     if (to) {
       const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!t.isValid()) return res.status(400).json({ success: false, message: 'Invalid to date.' });
-      // أي فتحة تبدأ قبل نهاية المدى
+    
       where += ' AND a.start_at <= ?';
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }

@@ -1,10 +1,8 @@
-// socket/socket.js
-const { Server } = require('socket.io');
+
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const { translateText } = require('../services/translationService');
 
-// userId -> [socketIds]
 const userSockets = new Map();
 const addSock = (uid, sid) => {
   const arr = userSockets.get(uid) || [];
@@ -15,7 +13,6 @@ const rmSock = (uid, sid) => {
   userSockets.set(uid, arr.filter(x => x !== sid));
 };
 
-// === Helpers ===
 async function verifyParticipant(userId, consultationId) {
   const [[row]] = await db.query(
     `SELECT id FROM consultations
@@ -33,12 +30,7 @@ async function getUserLang(userId) {
   return (row?.preferred_language || 'en').toLowerCase();
 }
 
-/**
- * gate checks:
- * - status in ('CONFIRMED', 'IN_PROGRESS')
- * - slot.start_at <= now
- * - mode == 'ASYNC_MSG'
- */
+
 async function canSendNow(consultationId) {
   const [[row]] = await db.query(
     `SELECT c.status, c.mode, s.start_at, s.end_at
@@ -47,45 +39,29 @@ async function canSendNow(consultationId) {
      WHERE c.id = ? LIMIT 1`,
     [consultationId]
   );
-  if (!row) {
-    return { ok: false, reason: 'Consultation not found' };
-  }
+  if (!row) return { ok: false, reason: 'Consultation not found' };
 
   const status = row.status;
   const mode = row.mode;
   const startAt = row.start_at ? new Date(row.start_at) : null;
-  // const endAt = row.end_at ? new Date(row.end_at) : null; // لو بدك تمنعي بعد الانتهاء فعّليه
+  const endAt = row.end_at ? new Date(row.end_at) : null;
 
-  if (mode !== 'ASYNC_MSG') {
-    return { ok: false, reason: 'Mode is not ASYNC_MSG' };
-  }
-
-  const validStatus = (status === 'CONFIRMED' || status === 'IN_PROGRESS');
-  if (!validStatus) {
+  if (mode !== 'ASYNC_MSG') return { ok: false, reason: 'Mode is not ASYNC_MSG' };
+  if (!(status === 'CONFIRMED' || status === 'IN_PROGRESS'))
     return { ok: false, reason: 'Consultation is not confirmed/in progress' };
-  }
-
-  if (!startAt) {
-    return { ok: false, reason: 'Slot has no start time' };
-  }
+  if (!startAt) return { ok: false, reason: 'Slot has no start time' };
 
   const now = new Date();
-  if (now < startAt) {
-    return { ok: false, reason: 'Appointment has not started yet' };
-  }
-
-  // (اختياري) منع بعد الانتهاء:
-  // if (endAt && now > endAt) return { ok:false, reason:'Appointment time is over' };
+  if (now < startAt) return { ok: false, reason: 'Appointment has not started yet' };
+  if (endAt && now > endAt) return { ok: false, reason: 'Appointment time is over' };
 
   return { ok: true };
 }
 
-function createSocketServer(httpServer) {
-  const io = new Server(httpServer, {
-    cors: { origin: '*', methods: ['GET','POST'] },
-  });
+function attachConsultationChat(io) {
+  if (io._consultationAttached) return;
+  io._consultationAttached = true;
 
-  // JWT Auth: token via auth/header/query
   io.use((socket, next) => {
     try {
       const t1 = socket.handshake.auth?.token;
@@ -99,7 +75,7 @@ function createSocketServer(httpServer) {
       const decoded = jwt.verify(token, process.env.JWT_ACCESS_SECRET);
       socket.user = { id: Number(decoded.id), role: decoded.role };
       next();
-    } catch (e) {
+    } catch {
       next(new Error('Unauthorized'));
     }
   });
@@ -107,9 +83,8 @@ function createSocketServer(httpServer) {
   io.on('connection', (socket) => {
     const userId = Number(socket.user.id);
     addSock(userId, socket.id);
-    console.log('✅ WS connected:', socket.id, 'user=', userId);
+    console.log(' WS connected:', socket.id, 'user=', userId);
 
-    // انضمام لغرفة الاستشارة (لا نمنع الانضمام، المنع على الإرسال فقط)
     socket.on('consultation:join', async ({ consultationId }) => {
       try {
         const cid = Number(consultationId);
@@ -123,7 +98,6 @@ function createSocketServer(httpServer) {
         socket.join(`consult:${cid}`);
         console.log('👥 JOINED consult:', cid, 'user=', userId);
 
-        // نعطي إشارة معلوماتية عن بوابة الإرسال
         const gate = await canSendNow(cid);
         if (!gate.ok) {
           socket.emit('consultation:info', {
@@ -132,10 +106,10 @@ function createSocketServer(httpServer) {
               gate.reason === 'Appointment has not started yet'
                 ? 'تنبيه: موعد الاستشارة لم يبدأ بعد — لا يمكن إرسال رسائل الآن.'
                 : gate.reason === 'Consultation is not confirmed/in progress'
-                ? 'تنبيه: حالة الاستشارة ليست CONFIRMED/IN_PROGRESS.'
-                : gate.reason === 'Mode is not ASYNC_MSG'
-                ? 'تنبيه: نوع الاستشارة ليس مراسلة غير متزامنة (ASYNC_MSG).'
-                : 'تنبيه: لا يمكن الإرسال حاليًا.',
+                  ? 'تنبيه: حالة الاستشارة ليست CONFIRMED/IN_PROGRESS.'
+                  : gate.reason === 'Mode is not ASYNC_MSG'
+                    ? 'تنبيه: نوع الاستشارة ليس مراسلة غير متزامنة (ASYNC_MSG).'
+                    : 'تنبيه: لا يمكن الإرسال حاليًا.',
           });
         }
 
@@ -146,19 +120,16 @@ function createSocketServer(httpServer) {
       }
     });
 
-    // إرسال رسالة (يُمنع إذا الشروط غير مستوفاة)
     socket.on('message:send', async ({ consultationId, text }) => {
       try {
         const cid = Number(consultationId);
         if (!cid || !text?.trim()) return;
 
-        // طرف مشارك؟
         const allowed = await verifyParticipant(userId, cid);
         if (!allowed) {
           return socket.emit('consultation:error', { message: 'Not a participant', consultationId: cid });
         }
 
-        // ✅ بوابة الإرسال: وقت + حالة + وضع المراسلة
         const gate = await canSendNow(cid);
         if (!gate.ok) {
           return socket.emit('consultation:error', {
@@ -167,14 +138,13 @@ function createSocketServer(httpServer) {
               gate.reason === 'Appointment has not started yet'
                 ? 'موعد الاستشارة لم يبدأ بعد'
                 : gate.reason === 'Consultation is not confirmed/in progress'
-                ? 'حالة الاستشارة ليست مؤكدة/قيد التنفيذ'
-                : gate.reason === 'Mode is not ASYNC_MSG'
-                ? 'هذه الاستشارة ليست للمراسلة النصية (ASYNC_MSG)'
-                : 'لا يمكن الإرسال في هذا الوقت',
+                  ? 'حالة الاستشارة ليست مؤكدة/قيد التنفيذ'
+                  : gate.reason === 'Mode is not ASYNC_MSG'
+                    ? 'هذه الاستشارة ليست للمراسلة النصية (ASYNC_MSG)'
+                    : 'لا يمكن الإرسال في هذا الوقت',
           });
         }
 
-        // الطرف الآخر
         const [[row]] = await db.query(
           `SELECT patient_id, doctor_id FROM consultations WHERE id=? LIMIT 1`,
           [cid]
@@ -182,11 +152,10 @@ function createSocketServer(httpServer) {
         if (!row) return;
 
         const patientId = Number(row.patient_id);
-        const doctorId  = Number(row.doctor_id);
-        const otherId   = userId === patientId ? doctorId : patientId;
+        const doctorId = Number(row.doctor_id);
+        const otherId = userId === patientId ? doctorId : patientId;
 
-        // لغات
-        const senderLang   = await getUserLang(userId);
+        const senderLang = await getUserLang(userId);
         const receiverLang = await getUserLang(otherId);
 
         const mustTranslate =
@@ -199,7 +168,6 @@ function createSocketServer(httpServer) {
           translated = await translateText(text, receiverLang, senderLang);
         }
 
-        // حفظ
         await db.query(
           `INSERT INTO messages
              (consultation_id, sender_id, text_original, text_translated, lang_from, lang_to)
@@ -207,7 +175,6 @@ function createSocketServer(httpServer) {
           [cid, userId, text, translated, senderLang, receiverLang || null]
         );
 
-        // إرسالات
         const forSender = {
           consultationId: cid,
           senderId: userId,
@@ -240,11 +207,9 @@ function createSocketServer(httpServer) {
 
     socket.on('disconnect', () => {
       rmSock(userId, socket.id);
-      console.log('❌ WS disconnected:', socket.id, 'user=', userId);
+      console.log(' WS disconnected:', socket.id, 'user=', userId);
     });
   });
-
-  return io;
 }
 
-module.exports = { createSocketServer };
+module.exports = { attachConsultationChat };

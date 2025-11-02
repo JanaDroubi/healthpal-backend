@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <title>Therapy Chat · Test Client</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <style>
+    body{font-family:system-ui,Arial;margin:24px;background:#fafafa}
+    .card{background:#fff;border:1px solid #eee;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.05);padding:16px;max-width:980px;margin:auto}
+    .row{display:flex;gap:8px;margin:8px 0;align-items:center}
+    input,button{padding:10px 12px;border-radius:10px;border:1px solid #ddd}
+    input{flex:1} button{cursor:pointer}
+    .log{height:420px;overflow:auto;border:1px solid #eee;border-radius:10px;background:#fff;padding:10px;display:flex;flex-direction:column}
+    .msg{margin:6px 0;padding:10px 12px;border-radius:12px;max-width:72%}
+    .me{background:#e8f7ff;align-self:flex-end}
+    .other{background:#f3f3f3;align-self:flex-start}
+    .meta{font-size:12px;color:#888;margin-top:4px}
+    .warn{color:#b35a00;font-size:13px}
+    .err{color:#c92a2a;font-size:13px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2 style="text-align:center;margin-top:0">Therapy Chat · Test Client</h2>
+
+    <div class="row">
+      <input id="token" placeholder="JWT Token" />
+    </div>
+
+    <div class="row">
+      <button id="connectBtn">Connect & Join</button>
+      <input id="sessionId" type="number" placeholder="Session Id" />
+    </div>
+
+    <div id="status" class="row"></div>
+
+    <div class="log" id="log"></div>
+
+    <div class="row">
+      <input id="msg" placeholder="Send message" />
+      <button id="sendBtn" disabled>Send</button>
+    </div>
+  </div>
+
+  <script>
+    function b64urlToB64(s){return s.replace(/-/g,'+').replace(/_/g,'/')}
+    function decodeJwt(token){ try{ return JSON.parse(atob(b64urlToB64(token.split('.')[1])));}catch{ return {}; } }
+    const $ = (id) => document.getElementById(id);
+    const log = (html) => { const l=$('log'); l.insertAdjacentHTML('beforeend', html); l.scrollTop=l.scrollHeight; };
+
+    (function restore(){
+      const t = localStorage.getItem('therapy_token');
+      const s = localStorage.getItem('therapy_session');
+      if (t) $('token').value = t;
+      if (s) $('sessionId').value = s;
+    })();
+
+    let socket = null;
+    let myUserId = null;
+    let myRole = null; // 'PATIENT' | 'THERAPIST'
+
+    $('connectBtn').onclick = () => {
+      const token = $('token').value.trim();
+      const sessionId = Number(($('sessionId').value || '').trim());
+      if(!token || !sessionId) return alert('أدخلي التوكن ورقم الجلسة');
+
+      localStorage.setItem('therapy_token', token);
+      localStorage.setItem('therapy_session', String(sessionId));
+
+      const payload = decodeJwt(token);
+      myUserId = Number(payload.id ?? payload.user_id ?? 0);
+      myRole   = String(payload.role ?? payload.user_role ?? '').toUpperCase();
+      if (!myUserId || !myRole) return alert('التوكن يجب أن يحتوي id و role');
+
+      if (socket) socket.close();
+      socket = io('http://localhost:3100', {
+        transports: ['websocket'],
+        auth: { token }
+      });
+
+      socket.on('connect', () => {
+        $('status').className = '';
+        $('status').textContent = `Connected: ${socket.id}`;
+        socket.emit('therapy:join', { sessionId });
+      });
+
+      socket.on('therapy:joined', () => {
+        $('status').className = '';
+        $('status').textContent = `Joined session ${sessionId}`;
+        $('sendBtn').disabled = false;
+        $('msg').focus();
+      });
+
+      socket.on('therapy:info', (e) => {
+        $('status').className = 'warn';
+        $('status').textContent = e.message || 'Info';
+      });
+
+      socket.on('therapy:error', (e) => {
+        $('status').className = 'err';
+        $('status').textContent = `Error: ${e.message || 'unknown'}`;
+        $('sendBtn').disabled = true;
+      });
+
+      socket.on('therapy:new:room', (m) => {
+        // m.by = 'PATIENT' | 'THERAPIST'
+        const isMe = (m.by === myRole);
+
+        const textToShow = isMe ? (m.original || '') : (m.translated || m.original || '');
+
+        const whoClass = isMe ? 'me' : 'other';
+        const whoLabel = isMe ? 'أنا' : (m.by === 'PATIENT' ? 'المريض' : 'المعالج');
+
+        log(`<div class="msg ${whoClass}">
+              <div>${textToShow}</div>
+              <div class="meta">${whoLabel} · ${new Date(m.at).toLocaleTimeString()}</div>
+            </div>`);
+      });
+
+      socket.on('disconnect', () => {
+        $('status').className = 'err';
+        $('status').textContent = 'Disconnected';
+        $('sendBtn').disabled = true;
+      });
+
+      $('sendBtn').onclick = sendNow;
+      $('msg').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendNow(); }
+      });
+
+      function sendNow(){
+        const t = $('msg').value.trim();
+        if(!t || !socket) return;
+        socket.emit('therapy:send', { sessionId, text: t });
+        $('msg').value = '';
+        $('msg').focus();
+      }
+    };
+  </script>
+</body>
+</html>

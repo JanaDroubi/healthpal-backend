@@ -993,11 +993,9 @@ const updateConsultationByAdmin = async (req, res) => {
     const { consultation_id } = req.params;
     const { status, mode, low_bandwidth } = req.body || {};
 
-    // تحضير حقول التحديث
     const updates = [];
     const params = [];
 
-    // تحقق/أضف status (اختياري)
     let newStatus = null;
     if (typeof status !== 'undefined') {
       const s = String(status).toUpperCase();
@@ -1012,7 +1010,6 @@ const updateConsultationByAdmin = async (req, res) => {
       params.push(newStatus);
     }
 
-    // تحقق/أضف mode (اختياري)
     if (typeof mode !== 'undefined') {
       const m = String(mode).toUpperCase();
       if (!ALLOWED_MODES.includes(m)) {
