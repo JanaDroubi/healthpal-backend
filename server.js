@@ -40,6 +40,8 @@ app.get("/test", (req, res) => {
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
 
+app.use("/api/VerifyDoctor", require("./routes/doctorVerificationRoutes"));
+
 
 app.get('/test', (req, res) => {
     res.send('hello world');

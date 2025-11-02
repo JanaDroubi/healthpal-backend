@@ -15,6 +15,8 @@ router.get('/viewdoctors',requireAuth,authorizeRoles('ADMIN'), getAllDoctors);
 router.delete('/deletedoctor/:user_id',requireAuth,authorizeRoles('ADMIN'), deactivateDoctor);
 //get by id 
 router.get('/getdoctor/:user_id',requireAuth,authorizeRoles('ADMIN', 'DOCTOR'),getDoctorById);
+
+
 ///////////feature one//////////
 //createAvailabilitySlot
 router.post('/createAvailabilitySlot/:doctor_id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR'), createAvailabilitySlot);
