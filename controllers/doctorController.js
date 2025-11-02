@@ -3,125 +3,123 @@ const dayjs = require('dayjs');
 const customParseFormat = require('dayjs/plugin/customParseFormat');
 dayjs.extend(customParseFormat);
 
-// Create Doctor Profile
+// Create Doctor Profile (with initial verification status = 'PENDING')
 const createDoctorProfile = async (req, res) => {
-    try {
-        const {
-            email,
-            university_name,
-            graduation_year,
-            gender,
-            specialty,
-            license_no,
-            bio,
-            hire_date,
-            telehealth_enabled,
-        } = req.body || {};
+  try {
+    const {
+      email,
+      university_name,
+      graduation_year,
+      gender,
+      specialty,
+      license_no,
+      bio,
+      hire_date,
+      telehealth_enabled,
+    } = req.body || {};
 
-        if (!email || !license_no) {
-            return res.status(400).send({
-                success: false,
-                message: "Email and license_no are required."
-            });
-        }
-
-        const [users] = await db.query(
-            "SELECT user_id, role, status FROM `user` WHERE email = ? LIMIT 1",
-            [email]
-        );
-
-        if (users.length === 0) {
-            return res.status(404).send({
-                success: false,
-                message: "User not found."
-            });
-        }
-
-        const { user_id: targetUserId, role, status } = users[0];
-
-        if (role !== "DOCTOR") {
-            return res.status(403).send({
-                success: false,
-                message: "Only users with role 'DOCTOR' can have a doctor profile."
-            });
-        }
-
-        const [exists] = await db.query(
-            "SELECT user_id FROM doctor_profiles WHERE user_id = ?",
-            [targetUserId]
-        );
-
-        if (exists.length > 0) {
-            return res.status(409).send({
-                success: false,
-                message: "Doctor profile already exists for this user."
-            });
-        }
-
-        const [licenseRows] = await db.query(
-            "SELECT license_no FROM doctor_profiles WHERE license_no = ?",
-            [license_no]
-        );
-
-        if (licenseRows.length > 0) {
-            return res.status(409).send({
-                success: false,
-                message: "This license number is already used by another doctor."
-            });
-        }
-
-
-        let hireDateISO = null;
-        if (hire_date) {
-            const parsed = dayjs(hire_date, ["DD/MM/YYYY", "YYYY-MM-DD"], true);
-            if (!parsed.isValid()) {
-                return res.status(400).send({
-                    success: false,
-                    message: "Invalid hire_date format. Use DD/MM/YYYY or YYYY-MM-DD."
-                });
-            }
-            hireDateISO = parsed.format("YYYY-MM-DD");
-        }
-
-
-        await db.query(
-            `INSERT INTO doctor_profiles (
-        user_id, university_name, graduation_year, gender, specialty,
-        license_no, bio, hire_date, telehealth_enabled
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                targetUserId,
-                university_name || null,
-                graduation_year || null,
-                gender || null,
-                specialty || null,
-                license_no,
-                bio || null,
-                hireDateISO,
-                telehealth_enabled ? 1 : 0
-
-            ]
-        );
-
-
-        const [rows] = await db.query(
-            "SELECT * FROM doctor_profiles WHERE user_id = ?",
-            [targetUserId]
-        );
-
-        res.status(201).send({
-            success: true,
-            message: "Doctor profile created successfully.",
-            data: rows[0]
-        });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).send({
-            success: false,
-            message: "Error creating doctor profile.",
-            error
-        });
+    if (!email || !license_no) {
+      return res.status(400).send({
+        success: false,
+        message: "Email and license_no are required."
+      });
     }
+
+    const [users] = await db.query(
+      "SELECT user_id, role, status FROM `user` WHERE email = ? LIMIT 1",
+      [email]
+    );
+
+    if (users.length === 0) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found."
+      });
+    }
+
+    const { user_id: targetUserId, role, status } = users[0];
+
+    if (role !== "DOCTOR") {
+      return res.status(403).send({
+        success: false,
+        message: "Only users with role 'DOCTOR' can have a doctor profile."
+      });
+    }
+
+    const [exists] = await db.query(
+      "SELECT user_id FROM doctor_profiles WHERE user_id = ?",
+      [targetUserId]
+    );
+
+    if (exists.length > 0) {
+      return res.status(409).send({
+        success: false,
+        message: "Doctor profile already exists for this user."
+      });
+    }
+
+    const [licenseRows] = await db.query(
+      "SELECT license_no FROM doctor_profiles WHERE license_no = ?",
+      [license_no]
+    );
+
+    if (licenseRows.length > 0) {
+      return res.status(409).send({
+        success: false,
+        message: "This license number is already used by another doctor."
+      });
+    }
+
+    let hireDateISO = null;
+    if (hire_date) {
+      const parsed = dayjs(hire_date, ["DD/MM/YYYY", "YYYY-MM-DD"], true);
+      if (!parsed.isValid()) {
+        return res.status(400).send({
+          success: false,
+          message: "Invalid hire_date format. Use DD/MM/YYYY or YYYY-MM-DD."
+        });
+      }
+      hireDateISO = parsed.format("YYYY-MM-DD");
+    }
+
+    // ✅ هنا أضفنا حقل verification_status = 'PENDING'
+    await db.query(
+      `INSERT INTO doctor_profiles (
+        user_id, university_name, graduation_year, gender, specialty,
+        license_no, bio, hire_date, telehealth_enabled, verified, verification_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'PENDING')`,
+      [
+        targetUserId,
+        university_name || null,
+        graduation_year || null,
+        gender || null,
+        specialty || null,
+        license_no,
+        bio || null,
+        hireDateISO,
+        telehealth_enabled ? 1 : 0
+      ]
+    );
+
+    const [rows] = await db.query(
+      "SELECT * FROM doctor_profiles WHERE user_id = ?",
+      [targetUserId]
+    );
+
+    res.status(201).send({
+      success: true,
+      message: "Doctor profile created successfully and set to PENDING verification.",
+      data: rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send({
+      success: false,
+      message: "Error creating doctor profile.",
+      error
+    });
+  }
 };
 
 
