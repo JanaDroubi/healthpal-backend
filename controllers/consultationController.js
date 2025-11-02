@@ -240,7 +240,7 @@ const deleteConsultation = async (req, res) => {
     });
 
   } catch (err) {
-    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    if (conn) { try { await conn.rollback(); } catch (_) { } }
     console.error(err);
     return res.status(500).json({
       success: false,
@@ -253,9 +253,9 @@ const deleteConsultation = async (req, res) => {
 };
 ////////////////////
 // view consultation //;
-const ALLOWED_STATUSES = ['PENDING','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED'];
-const ALLOWED_MODES = ['VIDEO','AUDIO','ASYNC_MSG'];
-const ALLOWED_GENDERS = ['M','F'];
+const ALLOWED_STATUSES = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
+const ALLOWED_MODES = ['VIDEO', 'AUDIO', 'ASYNC_MSG'];
+const ALLOWED_GENDERS = ['M', 'F'];
 const ALLOWED_SORT_BY = {
   start_at: 's.start_at',
   created_at: 'c.created_at',
@@ -292,22 +292,20 @@ const listMyConsultations = async (req, res) => {
       only_future = '0',
       min_duration,
       max_duration,
-      q,                  // بحث نصّي عام (اسم/إيميل دكتور + تخصص)
+      q,
       sort_by = 'start_at',
       sort_dir = 'desc',
       limit = '100',
       offset = '0'
     } = req.query;
 
-    limit  = Math.min(parseInt(limit, 10) || 100, 500);
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
     only_future = String(only_future) === '1';
 
-    // WHERE + params
     const whereParts = ['c.patient_id = ?'];
     const params = [patientId];
 
-    // status متعدد
     if (status) {
       const statuses = parseMulti(status).map(s => s.toUpperCase());
       for (const st of statuses) {
@@ -318,11 +316,10 @@ const listMyConsultations = async (req, res) => {
           });
         }
       }
-      whereParts.push(`c.status IN (${statuses.map(()=>'?').join(',')})`);
+      whereParts.push(`c.status IN (${statuses.map(() => '?').join(',')})`);
       params.push(...statuses);
     }
 
-    // mode متعدد
     if (mode) {
       const modes = parseMulti(mode).map(m => m.toUpperCase());
       for (const m of modes) {
@@ -333,26 +330,21 @@ const listMyConsultations = async (req, res) => {
           });
         }
       }
-      whereParts.push(`c.mode IN (${modes.map(()=>'?').join(',')})`);
+      whereParts.push(`c.mode IN (${modes.map(() => '?').join(',')})`);
       params.push(...modes);
     }
-
-    // low_bandwidth (boolean)
     if (typeof low_bandwidth !== 'undefined') {
       whereParts.push('c.low_bandwidth = ?');
       params.push(parseBool(low_bandwidth) ? 1 : 0);
     }
 
-    // specialty متعدد
     if (specialty) {
       const specs = parseMulti(specialty);
-      // نستخدم LIKE للحروف الكبيرة/الصغيرة (case-insensitive) لو كان collation يسمح،
-      // أو نطبع بنفس الشكل:
-      whereParts.push(`COALESCE(dp.specialty,'') IN (${specs.map(()=>'?').join(',')})`);
+
+      whereParts.push(`COALESCE(dp.specialty,'') IN (${specs.map(() => '?').join(',')})`);
       params.push(...specs);
     }
 
-    // gender طبيب
     if (gender) {
       const g = String(gender).toUpperCase();
       if (!ALLOWED_GENDERS.includes(g)) {
@@ -365,7 +357,6 @@ const listMyConsultations = async (req, res) => {
       params.push(g);
     }
 
-    // التاريخ
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD'], true);
       if (!f.isValid()) {
@@ -384,12 +375,10 @@ const listMyConsultations = async (req, res) => {
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // فقط مواعيد مستقبلية
     if (only_future) {
       whereParts.push('s.end_at >= NOW()');
     }
 
-    // مدة الجلسة بالدقائق
     if (min_duration) {
       const md = parseInt(min_duration, 10);
       if (!Number.isFinite(md) || md < 0) {
@@ -408,7 +397,6 @@ const listMyConsultations = async (req, res) => {
       params.push(md);
     }
 
-    // بحث عام q (اسم/إيميل دكتور + تخصص)
     if (q) {
       const like = `%${q.trim()}%`;
       whereParts.push('(d.full_name LIKE ? OR d.email LIKE ? OR COALESCE(dp.specialty, \'\') LIKE ?)');
@@ -417,7 +405,6 @@ const listMyConsultations = async (req, res) => {
 
     const where = `WHERE ${whereParts.join(' AND ')}`;
 
-    // ترتيب
     const sortCol = ALLOWED_SORT_BY[String(sort_by)] || ALLOWED_SORT_BY.start_at;
     const sortDir = String(sort_dir).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
@@ -490,14 +477,13 @@ const listConsultationsForAdmin = async (req, res) => {
       offset = '0'
     } = req.query;
 
-    limit  = Math.min(parseInt(limit, 10) || 100, 500);
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
     only_future = String(only_future) === '1';
 
     const whereParts = ['1=1'];
     const params = [];
 
-    // status متعدد
     if (status) {
       const statuses = parseMulti(status).map(s => s.toUpperCase());
       for (const st of statuses) {
@@ -505,18 +491,16 @@ const listConsultationsForAdmin = async (req, res) => {
           return res.status(400).json({ success: false, message: `Invalid status: ${st}` });
         }
       }
-      whereParts.push(`c.status IN (${statuses.map(()=>'?').join(',')})`);
+      whereParts.push(`c.status IN (${statuses.map(() => '?').join(',')})`);
       params.push(...statuses);
     }
 
-    // specialty متعدد
     if (specialty) {
       const specs = parseMulti(specialty);
-      whereParts.push(`COALESCE(dp.specialty,'') IN (${specs.map(()=>'?').join(',')})`);
+      whereParts.push(`COALESCE(dp.specialty,'') IN (${specs.map(() => '?').join(',')})`);
       params.push(...specs);
     }
 
-    // gender
     if (gender) {
       const g = gender.toUpperCase();
       if (!ALLOWED_GENDERS.includes(g)) {
@@ -525,8 +509,6 @@ const listConsultationsForAdmin = async (req, res) => {
       whereParts.push('dp.gender = ?');
       params.push(g);
     }
-
-    // mode متعدد
     if (mode) {
       const modes = parseMulti(mode).map(m => m.toUpperCase());
       for (const m of modes) {
@@ -534,17 +516,15 @@ const listConsultationsForAdmin = async (req, res) => {
           return res.status(400).json({ success: false, message: `Invalid mode: ${m}` });
         }
       }
-      whereParts.push(`c.mode IN (${modes.map(()=>'?').join(',')})`);
+      whereParts.push(`c.mode IN (${modes.map(() => '?').join(',')})`);
       params.push(...modes);
     }
 
-    // low_bandwidth
     if (low_bandwidth !== undefined) {
       whereParts.push(`c.low_bandwidth = ?`);
       params.push(parseBool(low_bandwidth) ? 1 : 0);
     }
 
-    // تاريخ
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD'], true);
       if (!f.isValid()) return res.status(400).json({ message: 'Invalid from date.' });
@@ -559,12 +539,10 @@ const listConsultationsForAdmin = async (req, res) => {
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // فقط المواعيد المستقبلية
     if (only_future) {
       whereParts.push('s.end_at >= NOW()');
     }
 
-    // مدة الجلسة
     if (min_duration) {
       whereParts.push('TIMESTAMPDIFF(MINUTE, s.start_at, s.end_at) >= ?');
       params.push(parseInt(min_duration, 10));
@@ -574,14 +552,12 @@ const listConsultationsForAdmin = async (req, res) => {
       params.push(parseInt(max_duration, 10));
     }
 
-    // بحث نصّي
     if (q) {
       const like = `%${q}%`;
       whereParts.push('(d.full_name LIKE ? OR p.full_name LIKE ? OR COALESCE(dp.specialty,"") LIKE ?)');
       params.push(like, like, like);
     }
 
-    // ترتيب
     const sortCol = ALLOWED_SORT_BY[sort_by] || ALLOWED_SORT_BY.start_at;
     const sortDir = sort_dir.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
@@ -726,7 +702,7 @@ const listDoctorConsultations = async (req, res) => {
       low_bandwidth,
       from,
       to,
-      q, // search patient name or email
+      q,
       min_duration,
       max_duration,
       limit = '100',
@@ -734,52 +710,47 @@ const listDoctorConsultations = async (req, res) => {
       only_future = '1'
     } = req.query;
 
-    limit  = Math.min(parseInt(limit, 10) || 100, 500);
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
     only_future = String(only_future) === '0' ? 0 : 1;
 
     const whereParts = ['c.doctor_id = ?'];
     const params = [doctorId];
 
-    // only future slots
     if (only_future) {
       whereParts.push('s.end_at >= NOW()');
     }
 
-    // multiple status filtering
     if (status) {
       const statuses = status.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-      const allowed = ['PENDING','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED'];
+      const allowed = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
       for (const st of statuses) {
         if (!allowed.includes(st)) {
           return res.status(400).json({ success: false, message: `Invalid status: ${st}` });
         }
       }
-      whereParts.push(`c.status IN (${statuses.map(()=>'?').join(',')})`);
+      whereParts.push(`c.status IN (${statuses.map(() => '?').join(',')})`);
       params.push(...statuses);
     }
 
-    // filter mode
     if (mode) {
       const modes = mode.split(',').map(m => m.trim().toUpperCase()).filter(Boolean);
-      const allowedModes = ['VIDEO','AUDIO','ASYNC_MSG'];
+      const allowedModes = ['VIDEO', 'AUDIO', 'ASYNC_MSG'];
       for (const m of modes) {
         if (!allowedModes.includes(m)) {
           return res.status(400).json({ success: false, message: `Invalid mode: ${m}` });
         }
       }
-      whereParts.push(`c.mode IN (${modes.map(()=>'?').join(',')})`);
+      whereParts.push(`c.mode IN (${modes.map(() => '?').join(',')})`);
       params.push(...modes);
     }
 
-    // low bandwidth
     if (typeof low_bandwidth !== 'undefined') {
       const lb = (low_bandwidth === '1' || low_bandwidth === 'true' || low_bandwidth === true) ? 1 : 0;
       whereParts.push('c.low_bandwidth = ?');
       params.push(lb);
     }
 
-    // from date
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD'], true);
       if (!f.isValid()) return res.status(400).json({ success: false, message: 'Invalid from date' });
@@ -787,7 +758,6 @@ const listDoctorConsultations = async (req, res) => {
       params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // to date
     if (to) {
       const t = dayjs(to, ['YYYY-MM-DD'], true);
       if (!t.isValid()) return res.status(400).json({ success: false, message: 'Invalid to date' });
@@ -795,7 +765,6 @@ const listDoctorConsultations = async (req, res) => {
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // filter by duration
     if (min_duration) {
       whereParts.push('TIMESTAMPDIFF(MINUTE, s.start_at, s.end_at) >= ?');
       params.push(Number(min_duration));
@@ -806,7 +775,6 @@ const listDoctorConsultations = async (req, res) => {
       params.push(Number(max_duration));
     }
 
-    // search patient name or email
     if (q) {
       whereParts.push('(p.full_name LIKE ? OR p.email LIKE ?)');
       params.push(`%${q}%`, `%${q}%`);
@@ -864,7 +832,7 @@ const updateConsultationStatusByDoctor = async (req, res) => {
       });
     }
 
-    const allowedStatuses = ['PENDING','CONFIRMED','IN_PROGRESS','COMPLETED','CANCELLED'];
+    const allowedStatuses = ['PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
     const newStatus = String(status || '').toUpperCase();
 
     if (!allowedStatuses.includes(newStatus)) {
@@ -877,7 +845,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // نقفل الاستشارة + نجيب بيانات الـ slot
     const [[consult]] = await conn.query(
       `SELECT c.id, c.doctor_id, c.status, c.slot_id, s.is_booked
          FROM consultations c
@@ -891,7 +858,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultation not found.' });
     }
 
-    // لازم يكون نفس الدكتور
     if (String(consult.doctor_id) !== actorId) {
       await conn.rollback();
       return res.status(403).json({
@@ -900,10 +866,9 @@ const updateConsultationStatusByDoctor = async (req, res) => {
       });
     }
 
-    // منع الرجوع من حالات نهائية
     const invalidTransitions = {
-      COMPLETED: ['PENDING','CONFIRMED','IN_PROGRESS'],
-      CANCELLED: ['PENDING','CONFIRMED','IN_PROGRESS']
+      COMPLETED: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'],
+      CANCELLED: ['PENDING', 'CONFIRMED', 'IN_PROGRESS']
     };
     if (invalidTransitions[consult.status] && invalidTransitions[consult.status].includes(newStatus)) {
       await conn.rollback();
@@ -913,7 +878,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
       });
     }
 
-    // تحديث حالة الاستشارة
     await conn.query(
       `UPDATE consultations 
           SET status = ?, updated_at = NOW()
@@ -924,7 +888,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
     let canceledOthers = 0;
 
     if (newStatus === 'CONFIRMED') {
-      // اضبط الـ slot كمحجوز
       await conn.query(
         `UPDATE availability_slots 
             SET is_booked = 1
@@ -932,7 +895,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
         [consult.slot_id]
       );
 
-      // ألغِ كل الاستشارات الأخرى لنفس الـslot بحالة PENDING
       const [cancelRes] = await conn.query(
         `UPDATE consultations
             SET status = 'CANCELLED', updated_at = NOW()
@@ -943,7 +905,6 @@ const updateConsultationStatusByDoctor = async (req, res) => {
       );
       canceledOthers = cancelRes?.affectedRows || 0;
     } else if (newStatus === 'CANCELLED') {
-      // لو ألغاها الدكتور، ارجع الـslot غير محجوز
       await conn.query(
         `UPDATE availability_slots 
             SET is_booked = 0
@@ -1022,7 +983,6 @@ const updateConsultationByAdmin = async (req, res) => {
       params.push(m);
     }
 
-    // تحقق/أضف low_bandwidth (اختياري)
     if (typeof low_bandwidth !== 'undefined') {
       const lb = (low_bandwidth === true || String(low_bandwidth).toLowerCase() === 'true' || String(low_bandwidth) === '1') ? 1 : 0;
       updates.push('low_bandwidth = ?');
@@ -1039,7 +999,6 @@ const updateConsultationByAdmin = async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // جبنا الاستشارة + السلوْت مع قفل
     const [[consult]] = await conn.query(
       `SELECT c.id, c.status, c.slot_id, c.patient_id, c.doctor_id,
               s.is_booked, s.start_at, s.end_at
@@ -1054,11 +1013,10 @@ const updateConsultationByAdmin = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Consultation not found.' });
     }
 
-    // منطق انتقال الحالات (لتجنّب رجوع غير منطقي)
     if (newStatus) {
       const invalidTransitions = {
-        COMPLETED: ['PENDING','CONFIRMED','IN_PROGRESS'],
-        CANCELLED: ['PENDING','CONFIRMED','IN_PROGRESS']
+        COMPLETED: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'],
+        CANCELLED: ['PENDING', 'CONFIRMED', 'IN_PROGRESS']
       };
       if (invalidTransitions[consult.status]?.includes(newStatus)) {
         await conn.rollback();
@@ -1069,13 +1027,11 @@ const updateConsultationByAdmin = async (req, res) => {
       }
     }
 
-    // نفّذ التحديث
     updates.push('updated_at = NOW()');
     const sql = `UPDATE consultations SET ${updates.join(', ')} WHERE id = ?`;
     params.push(consultation_id);
     await conn.query(sql, params);
 
-    // ضبط is_booked + إلغاء بقية الحجوزات المعلقة لنفس الـ slot عند التأكيد
     let newIsBooked = consult.is_booked;
     let canceledOthers = 0;
 
@@ -1083,7 +1039,6 @@ const updateConsultationByAdmin = async (req, res) => {
       await conn.query(`UPDATE availability_slots SET is_booked = 1 WHERE id = ?`, [consult.slot_id]);
       newIsBooked = 1;
 
-      // ألغِ كل الاستشارات الأخرى لنفس الـ slot بحالة PENDING
       const [cancelRes] = await conn.query(
         `UPDATE consultations
             SET status = 'CANCELLED', updated_at = NOW()
@@ -1115,7 +1070,7 @@ const updateConsultationByAdmin = async (req, res) => {
     });
 
   } catch (err) {
-    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    if (conn) { try { await conn.rollback(); } catch (_) { } }
     console.error(err);
     return res.status(500).json({
       success: false,
@@ -1127,7 +1082,66 @@ const updateConsultationByAdmin = async (req, res) => {
   }
 };
 
+//msgs
+const listConsultationMessages = async (req, res) => {
+  const { consultation_id } = req.params;
+  const authUser = req.user || {};
+  const authId = String(authUser.id || '');
+  const role = String(authUser.role || '').toUpperCase();
 
+  try {
+    const [cRows] = await db.query(
+      `SELECT id, patient_id, doctor_id, status
+       FROM consultations
+       WHERE id = ?`,
+      [consultation_id]
+    );
+
+    if (cRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Consultation not found' });
+    }
+
+    const { patient_id, doctor_id } = cRows[0];
+
+    if (role !== 'ADMIN') {
+      const isPatient = role === 'PATIENT' && String(patient_id) === authId;
+      const isDoctor  = role === 'DOCTOR'  && String(doctor_id)  === authId;
+      if (!isPatient && !isDoctor) {
+        return res.status(403).json({ success: false, message: 'Forbidden: not a participant' });
+      }
+    }
+
+    let { limit = '200', offset = '0' } = req.query;
+    limit  = Math.min(Math.max(parseInt(limit, 10)  || 50,  1),  500);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    const [rows] = await db.query(
+      `SELECT id,
+              consultation_id,
+              sender_id,
+              text_original,
+              text_translated,
+              lang_from,
+              lang_to,
+              created_at
+       FROM messages
+       WHERE consultation_id = ?
+       ORDER BY id ASC
+       LIMIT ? OFFSET ?`,
+      [consultation_id, limit, offset]
+    );
+
+    res.status(200).json({
+      success: true,
+      count: rows.length,
+      consultation_id,
+      messages: rows
+    });
+  } catch (err) {
+    console.error('messages fetch error:', err);
+    res.status(500).json({ success: false, message: 'Failed to load messages' });
+  }
+};
 /////////////////
 module.exports = {
   bookConsultation, deleteConsultation,
@@ -1135,5 +1149,5 @@ module.exports = {
   updatePendingConsultation,
   listDoctorConsultations,
   updateConsultationStatusByDoctor,
-  updateConsultationByAdmin
+  updateConsultationByAdmin ,listConsultationMessages
 }

@@ -196,7 +196,6 @@ const updateUser = async (req, res) => {
     const { id } = req.params;
     const fields = req.body;
 
-    // لو ما في ولا قيمة مرسلة
     if (Object.keys(fields).length === 0) {
       return res.status(400).send({ success: false, message: 'No fields to update' });
     }

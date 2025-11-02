@@ -82,7 +82,6 @@ const createDoctorProfile = async (req, res) => {
       hireDateISO = parsed.format("YYYY-MM-DD");
     }
 
-    // ✅ هنا أضفنا حقل verification_status = 'PENDING'
     await db.query(
       `INSERT INTO doctor_profiles (
         user_id, university_name, graduation_year, gender, specialty,
@@ -129,7 +128,7 @@ const PROFILE_ALLOWED_FIELDS = new Set([
   'graduation_year',
   'gender',
   'specialty',
-  'license_no',        // ADMIN only (checked below)
+  'license_no',        
   'bio',
   'hire_date',
   'telehealth_enabled',
@@ -148,12 +147,10 @@ const updateDoctorProfile = async (req, res) => {
     const { user_id } = req.params;
     const input = req.body || {};
 
-    // actor (from token)
     const actor = req.user || {};
     const actorRole = String(actor.role || '').trim().toUpperCase();
     const actorId = String(actor.id || '');
 
-    // 0) Ensure target user exists and is DOCTOR
     const [[target]] = await db.query(
       'SELECT user_id, role, email FROM `user` WHERE user_id = ? LIMIT 1',
       [user_id]
@@ -163,7 +160,6 @@ const updateDoctorProfile = async (req, res) => {
       return res.status(403).send({ success: false, message: 'Target user is not a DOCTOR.' });
     }
 
-    // 1) Ownership: doctor can update only his own account (admin always allowed)
     if (actorRole === 'DOCTOR' && actorId !== String(user_id)) {
       return res.status(403).send({
         success: false,
@@ -171,7 +167,6 @@ const updateDoctorProfile = async (req, res) => {
       });
     }
 
-    // 2) Split inputs into profile vs user fields
     const profileFields = {};
     for (const k of Object.keys(input)) {
       if (PROFILE_ALLOWED_FIELDS.has(k)) profileFields[k] = input[k];
@@ -187,8 +182,6 @@ const updateDoctorProfile = async (req, res) => {
       return res.status(400).send({ success: false, message: 'No valid fields to update.' });
     }
 
-    // 3) Validate/normalize profile fields
-    // license_no: only ADMIN + duplicate check
     if (Object.prototype.hasOwnProperty.call(profileFields, 'license_no')) {
       if (actorRole !== 'ADMIN') {
         return res.status(403).send({
@@ -209,7 +202,6 @@ const updateDoctorProfile = async (req, res) => {
       }
     }
 
-    // graduation_year: 4-digit or null
     if (Object.prototype.hasOwnProperty.call(profileFields, 'graduation_year')) {
       const gy = profileFields.graduation_year;
       if (gy === null || gy === '') {
@@ -224,7 +216,6 @@ const updateDoctorProfile = async (req, res) => {
       }
     }
 
-    // hire_date: accept DD/MM/YYYY or YYYY-MM-DD
     if (Object.prototype.hasOwnProperty.call(profileFields, 'hire_date')) {
       const v = profileFields.hire_date;
       if (v === null || v === '') {
@@ -241,7 +232,6 @@ const updateDoctorProfile = async (req, res) => {
       }
     }
 
-    // booleans -> 0/1
     if (Object.prototype.hasOwnProperty.call(profileFields, 'telehealth_enabled')) {
       profileFields.telehealth_enabled =
         profileFields.telehealth_enabled === true ||
@@ -257,7 +247,6 @@ const updateDoctorProfile = async (req, res) => {
           : 0;
     }
 
-    // 4) Validate/normalize user fields
     if (Object.prototype.hasOwnProperty.call(userFields, 'email')) {
       if (actorRole !== 'ADMIN') {
         return res.status(403).send({ success: false, message: 'Only ADMIN can update email.' });
@@ -298,14 +287,12 @@ const updateDoctorProfile = async (req, res) => {
         });
       }
       userFields.password_hash = await bcrypt.hash(pwd, 10);
-      delete userFields.password; // never store raw password
+      delete userFields.password; 
     }
 
-    // 5) Execute within a transaction
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // Update profile (if any fields)
     if (Object.keys(profileFields).length > 0) {
       const setClause = Object.keys(profileFields).map(k => `${k} = ?`).join(', ');
       const values = Object.values(profileFields);
@@ -315,7 +302,6 @@ const updateDoctorProfile = async (req, res) => {
         [...values, user_id]
       );
       if (updP.affectedRows === 0) {
-        // if trying to update profile that doesn't exist
         await conn.rollback();
         return res.status(404).send({
           success: false,
@@ -324,10 +310,8 @@ const updateDoctorProfile = async (req, res) => {
       }
     }
 
-    // Update user (if any fields)
     if (Object.keys(userFields).length > 0) {
       const setUser = Object.keys(userFields).map(k => {
-        // map password_hash column name
         return `${k === 'password_hash' ? 'password_hash' : k} = ?`;
       }).join(', ');
       const valsUser = Object.values(userFields);
@@ -340,7 +324,6 @@ const updateDoctorProfile = async (req, res) => {
 
     await conn.commit();
 
-    // 6) return updated combined data
     const [[userRow]] = await db.query(
       'SELECT user_id, full_name, email, phone, role, status, created_at, updated_at FROM `user` WHERE user_id = ?',
       [user_id]
@@ -378,10 +361,9 @@ const updateDoctorProfile = async (req, res) => {
 };
 
 //get all doctors
-// Get All Doctors
 const getAllDoctors = async (req, res) => {
   try {
-    const [rows] = await db.query(`
+     const [rows] = await db.query(`
       SELECT 
         u.user_id,
         u.full_name,
@@ -398,11 +380,15 @@ const getAllDoctors = async (req, res) => {
         dp.hire_date,
         dp.telehealth_enabled,
         dp.verified,
+        dp.verification_status,
         dp.created_at,
         dp.updated_at
       FROM user u
       LEFT JOIN doctor_profiles dp ON u.user_id = dp.user_id
-      WHERE u.role = 'DOCTOR' AND u.status = 'ACTIVE'
+      WHERE 
+        u.role = 'DOCTOR' 
+        AND u.status = 'ACTIVE'
+        AND dp.verification_status = 'APPROVED'
       ORDER BY u.created_at DESC
     `);
 
@@ -413,7 +399,6 @@ const getAllDoctors = async (req, res) => {
       });
     }
 
-    // ✅ Format + normalize
     const formattedRows = rows.map(doc => ({
       ...doc,
       hire_date: doc.hire_date
@@ -445,7 +430,6 @@ const deactivateDoctor = async (req, res) => {
   const { user_id } = req.params;
   let conn;
   try {
-    // 1) ensure user exists and is a DOCTOR
     const [[u]] = await db.query(
       'SELECT user_id, role, status FROM `user` WHERE user_id = ? LIMIT 1',
       [user_id]
@@ -457,17 +441,14 @@ const deactivateDoctor = async (req, res) => {
       return res.status(403).send({ success: false, message: 'Target user is not a DOCTOR.' });
     }
 
-    // 2) begin transaction
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // 3) delete doctor profile (if exists)
     const [delProfile] = await conn.query(
       'DELETE FROM doctor_profiles WHERE user_id = ?',
       [user_id]
     );
 
-    // 4) set user as INACTIVE
     const [updUser] = await conn.query(
       "UPDATE `user` SET status = 'INACTIVE', updated_at = NOW() WHERE user_id = ?",
       [user_id]
@@ -617,6 +598,29 @@ const createAvailabilitySlot = async (req, res) => {
     const okDoc = await ensureDoctorActive(doctor_id);
     if (!okDoc.ok) return res.status(okDoc.code).json({ success: false, message: okDoc.msg });
 
+    const [[verRow]] = await db.query(
+      `SELECT dp.verification_status
+         FROM doctor_profiles dp
+        WHERE dp.user_id = ? 
+        LIMIT 1`,
+      [doctor_id]
+    );
+
+    if (!verRow) {
+      return res.status(404).json({
+        success: false,
+        message: 'Doctor profile not found.'
+      });
+    }
+
+    if (verRow.verification_status !== 'APPROVED') {
+      return res.status(403).json({
+        success: false,
+        message: 'Doctor is not verified yet. Availability can be added only after approval.'
+      });
+    }
+
+
     const { start_at, end_at } = req.body || {};
     const start = parseDateTime(start_at);
     const end   = parseDateTime(end_at);
@@ -765,7 +769,7 @@ const listAllAvailability = async (req, res) => {
     let limit = Math.min(parseInt(req.query.limit || '200', 10), 1000);
     let offset = Math.max(parseInt(req.query.offset || '0', 10), 0);
 
-    const whereParts = ['u.role = "DOCTOR"']; // نضمن إنها دكاترة
+    const whereParts = ['u.role = "DOCTOR"']; 
     const params = [];
 
     if (doctor_id) {
@@ -885,7 +889,6 @@ const updateAvailabilitySlot = async (req, res) => {
 
     const { start_at, end_at, is_booked } = req.body || {};
 
-    // require at least one field to update
     if (typeof start_at === 'undefined' && typeof end_at === 'undefined' && typeof is_booked === 'undefined') {
       return res.status(400).json({
         success: false,
@@ -893,7 +896,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // doctors cannot change is_booked
     if (actorRole === 'DOCTOR' && typeof is_booked !== 'undefined') {
       return res.status(403).json({
         success: false,
@@ -901,7 +903,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // doctor may only operate on his own doctor_id
     if (actorRole === 'DOCTOR' && actorId !== String(doctor_id)) {
       return res.status(403).json({
         success: false,
@@ -912,7 +913,6 @@ const updateAvailabilitySlot = async (req, res) => {
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // lock and fetch current slot
     const [slotRows] = await conn.query(
       'SELECT * FROM availability_slots WHERE id = ? FOR UPDATE',
       [slot_id]
@@ -923,19 +923,16 @@ const updateAvailabilitySlot = async (req, res) => {
     }
     const slot = slotRows[0];
 
-    // ensure slot belongs to provided doctor_id
     if (String(slot.doctor_id) !== String(doctor_id)) {
       await conn.rollback();
       return res.status(403).json({ success: false, message: 'Slot does not belong to this doctor.' });
     }
 
-    // if actor is DOCTOR ensure slot not booked
     if (actorRole === 'DOCTOR' && Number(slot.is_booked) === 1) {
       await conn.rollback();
       return res.status(403).json({ success: false, message: 'Cannot modify a booked slot.' });
     }
 
-    // parse and validate new start/end times (if provided), otherwise use existing
     let newStart = slot.start_at ? dayjs(slot.start_at) : null;
     let newEnd = slot.end_at ? dayjs(slot.end_at) : null;
 
@@ -957,7 +954,6 @@ const updateAvailabilitySlot = async (req, res) => {
       newEnd = p;
     }
 
-    // require both start and end (either existing or provided)
     if (!newStart || !newEnd) {
       await conn.rollback();
       return res.status(400).json({
@@ -966,7 +962,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // ensure start < end
     if (!newStart.isBefore(newEnd)) {
       await conn.rollback();
       return res.status(400).json({
@@ -975,7 +970,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // do not allow slot entirely in the past
     const [[nowRow]] = await conn.query('SELECT NOW() AS nowts');
     const now = dayjs(nowRow.nowts);
     if (newEnd.isBefore(now)) {
@@ -986,7 +980,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // check overlap with other slots for same doctor (exclude current slot)
     const [overlap] = await conn.query(
       `SELECT id FROM availability_slots
          WHERE doctor_id = ?
@@ -1004,7 +997,6 @@ const updateAvailabilitySlot = async (req, res) => {
       });
     }
 
-    // build update fields
     const updates = [];
     const params = [];
 
@@ -1014,8 +1006,7 @@ const updateAvailabilitySlot = async (req, res) => {
     updates.push('end_at = ?');
     params.push(newEnd.format('YYYY-MM-DD HH:mm:ss'));
 
-    // admin may change is_booked if provided
-    let willSetIsBooked = null; // null = not provided, otherwise 0/1
+    let willSetIsBooked = null; 
     if (actorRole === 'ADMIN' && typeof is_booked !== 'undefined') {
       const ib = (is_booked === true || String(is_booked).toLowerCase() === 'true' || String(is_booked) === '1') ? 1 : 0;
       updates.push('is_booked = ?');
@@ -1026,20 +1017,16 @@ const updateAvailabilitySlot = async (req, res) => {
 
     params.push(slot_id);
 
-    // perform the update
     const sql = `UPDATE availability_slots SET ${updates.join(', ')} WHERE id = ?`;
     const [updResult] = await conn.query(sql, params);
 
-    // default canceled count
     let canceledCount = 0;
 
-    // If admin explicitly changed is_booked from 1 -> 0, cancel related consultations
     if (actorRole === 'ADMIN' && willSetIsBooked !== null) {
       const prevBooked = Number(slot.is_booked) === 1;
       const newBooked = willSetIsBooked === 1;
 
       if (prevBooked && !newBooked) {
-        // cancel consultations in  CONFIRMED
         const [cancelRes] = await conn.query(
           `UPDATE consultations
              SET status = 'CANCELLED'
@@ -1047,12 +1034,10 @@ const updateAvailabilitySlot = async (req, res) => {
              AND status IN ('CONFIRMED')`,
           [slot_id]
         );
-        // mysql returns affectedRows in OkPacket
         canceledCount = cancelRes && (cancelRes.affectedRows || 0);
       }
     }
 
-    // fetch updated slot
     const [[updatedRow]] = await conn.query('SELECT * FROM availability_slots WHERE id = ?', [slot_id]);
 
     await conn.commit();
