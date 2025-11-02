@@ -39,7 +39,12 @@ router.get('/stats', requireAuth, authorizeRoles("ADMIN"), getPatientsStats);
 
 ////////////////// feature one //////////////////
 //get all available slot of doctors
-router.get('/availabilitySlot', requireAuth, authorizeRoles("PATIENT"), listAvailableForPatients);
+router.get(
+  '/availability-slots',
+  requireAuth,
+  authorizeRoles('PATIENT', 'ADMIN'),
+  listAvailableForPatients
+);
 ////////////////// end feature one //////////////////
 
 

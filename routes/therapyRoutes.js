@@ -5,7 +5,7 @@ const { authorizeRoles } = require('../middleware/authorizeRoles');
 
 //  createTherapyAvailabilitySlot
 router.post(
-  '/therapists/:therapist_id/availability',
+  '/:therapist_id/availability',
   requireAuth,
   authorizeRoles('THERAPIST','ADMIN'),
   createTherapyAvailabilitySlot
@@ -13,7 +13,7 @@ router.post(
 
 // view therapy slot
 router.get(
-  '/therapists/:therapist_id/availability',
+  '/:therapist_id/availability',
   requireAuth,
   authorizeRoles('PATIENT','THERAPIST','ADMIN'), 
   listAvailabilityForTherapist
@@ -29,7 +29,7 @@ router.get(
 
 // delete therapy slot
 router.delete(
-  '/therapists/:therapist_id/availability/:slot_id',
+  '/:therapist_id/availability/:slot_id',
   requireAuth,
   authorizeRoles('THERAPIST','ADMIN'),
   deleteTherapyAvailabilitySlot
@@ -46,7 +46,7 @@ router.post(
 
 // Update Availability Slot
 router.put(
-  '/therapists/:therapist_id/availability/:slot_id',
+  '/:therapist_id/availability/:slot_id',
   requireAuth,
   authorizeRoles('THERAPIST','ADMIN'),
   updateTherapyAvailabilitySlot

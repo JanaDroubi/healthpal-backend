@@ -288,7 +288,7 @@ const deletePatient = async (req, res) => {
   try {
     const { user_id } = req.params;
 
-   
+
     if (req.user.role === "PATIENT" && req.user.id != user_id) {
       return res.status(403).send({
         success: false,
@@ -296,7 +296,7 @@ const deletePatient = async (req, res) => {
       });
     }
 
-    
+
     const [[user]] = await db.query(
       "SELECT user_id, role, status FROM `user` WHERE user_id = ? LIMIT 1",
       [user_id]
@@ -313,17 +313,17 @@ const deletePatient = async (req, res) => {
       });
     }
 
-    
+
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    
+
     const [delProfile] = await conn.query(
       "DELETE FROM patient_profiles WHERE user_id = ?",
       [user_id]
     );
 
-    
+
     const [updUser] = await conn.query(
       "UPDATE `user` SET status = 'INACTIVE', updated_at = NOW() WHERE user_id = ?",
       [user_id]
@@ -343,7 +343,7 @@ const deletePatient = async (req, res) => {
 
   } catch (error) {
     if (conn) {
-      try { await conn.rollback(); } catch (_) {}
+      try { await conn.rollback(); } catch (_) { }
     }
     console.error(error);
     res.status(500).send({
@@ -404,24 +404,22 @@ const getPatientsStats = async (req, res) => {
 const listAvailableForPatients = async (req, res) => {
   try {
     let {
-      specialty,       // نص جزئي
-      gender,          // M/F أو male/female أو ذكر/أنثى
-      from,            // YYYY-MM-DD أو ISO
-      to,              // YYYY-MM-DD أو ISO
-      q,               // بحث بالاسم (اختياري)
-      min_minutes,     // مدة أدنى (اختياري)
-      max_minutes,     // مدة أقصى (اختياري)
-      sort_by = 'start_at',  // start_at | end_at | doctor_name
-      order = 'asc',         // asc | desc
+      specialty,
+      gender,
+      from,
+      to,
+      q,
+      min_minutes,
+      max_minutes,
+      sort_by = 'start_at',
+      order = 'asc',
       limit = '100',
       offset = '0'
     } = req.query;
 
-    // pagination bounds
-    limit  = Math.min(parseInt(limit, 10)  || 100, 500);
-    offset = Math.max(parseInt(offset, 10) || 0,   0);
+    limit = Math.min(parseInt(limit, 10) || 100, 500);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
 
-    // تطبيع/تحضير
     const safeOrder = String(order).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
     const sortMap = {
       start_at: 'a.start_at',
@@ -430,7 +428,6 @@ const listAvailableForPatients = async (req, res) => {
     };
     const sortCol = sortMap[String(sort_by)] || 'a.start_at';
 
-    // قواعد أساسية: غير محجوز + دكتور فعّال + مستقبل فقط
     const whereParts = [
       'a.is_booked = 0',
       "u.role = 'DOCTOR'",
@@ -439,13 +436,11 @@ const listAvailableForPatients = async (req, res) => {
     ];
     const params = [];
 
-    // فلترة التخصص (case-insensitive)
     if (specialty) {
       whereParts.push('COALESCE(LOWER(dp.specialty), "") LIKE ?');
       params.push(`%${String(specialty).toLowerCase()}%`);
     }
 
-    // فلترة الجنس: نحول كل القيم ل M/F
     if (gender) {
       const gRaw = String(gender).trim().toLowerCase();
       const mapGender = {
@@ -460,7 +455,6 @@ const listAvailableForPatients = async (req, res) => {
       params.push(g);
     }
 
-    // تاريخ from
     if (from) {
       const f = dayjs(from, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!f.isValid()) {
@@ -470,7 +464,6 @@ const listAvailableForPatients = async (req, res) => {
       params.push(f.startOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // تاريخ to
     if (to) {
       const t = dayjs(to, ['YYYY-MM-DD', dayjs.ISO_8601], true);
       if (!t.isValid()) {
@@ -480,13 +473,11 @@ const listAvailableForPatients = async (req, res) => {
       params.push(t.endOf('day').format('YYYY-MM-DD HH:mm:ss'));
     }
 
-    // بحث بالاسم
     if (q) {
       whereParts.push('LOWER(u.full_name) LIKE ?');
       params.push(`%${String(q).toLowerCase()}%`);
     }
 
-    // فلترة على المدة
     if (min_minutes) {
       const mm = parseInt(min_minutes, 10);
       if (!Number.isFinite(mm) || mm < 0) {
@@ -542,7 +533,7 @@ const listAvailableForPatients = async (req, res) => {
   }
 };
 
- 
+
 
 
 ////////////////// end feature one //////////////////

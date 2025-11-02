@@ -9,6 +9,7 @@ const { getUsers } = require('../controllers/userController');
 const { getUserById } = require('../controllers/userController');
 const { updateUser } = require('../controllers/userController');
 const { deleteUser } = require('../controllers/userController');
+const { authorizeRoles } = require('../middleware/authorizeRoles');
 
 //router object
 const router = express.Router();
@@ -16,16 +17,20 @@ const router = express.Router();
 
 
 //GET ALL USERS LIST || GET
-router.get('/getallusers', requireAuth, authorizeRoles('ADMIN'), getUsers);
+
+router.get('/', requireAuth, authorizeRoles('ADMIN'), getUsers);
 
 //GET USER BY ID || GET
-router.get('/getuser/:id', requireAuth, authorizeRoles('ADMIN'), getUserById);
+
+router.get('/:id', requireAuth, authorizeRoles('ADMIN'), getUserById);
 
 //UPDATE USER
-router.put('/updateuser/:id', requireAuth, authorizeRoles('ADMIN'), updateUser);
+
+router.put('/:id', requireAuth, authorizeRoles('ADMIN'), updateUser);
 
 //DELETE USER
-router.delete('/deleteuser/:id',requireAuth, authorizeRoles('ADMIN'), deleteUser);
+
+router.delete('/:id', requireAuth, authorizeRoles('ADMIN'), deleteUser);
 
 //signup || creat user
 router.post("/signup", signupUser);
