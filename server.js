@@ -26,11 +26,16 @@ app.use("/api/updates", require("./routes/recoveryUpdates"));
 app.use("/api/feedbacks", require("./routes/patientFeedback"));
 app.use("/api/equipment", require("./routes/equipmentRoutes"));
 app.use("/api/medication", require("./routes/medicationRoutes"));
-app.use("/api/medication-requests", require("./routes/medicationDeliveryRouter"));
+app.use(
+  "/api/medication-requests",
+  require("./routes/medicationDeliveryRouter")
+);
 app.use("/api/inventory", require("./routes/inventoryRouters"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
 app.use("/api/VerifyDoctor", require("./routes/doctorVerificationRoutes"));
+app.use("/api/ngos", require("./routes/ngoRouters"));
+app.use("/api/mission", require("./routes/missionRoutes.js"));
 
 app.get("/test", (req, res) => res.send("hello world"));
 
@@ -46,7 +51,6 @@ const { attachConsultationChat } = require("./socket/socket");
 const { attachTherapyChat } = require("./socket/therapySocket");
 if (typeof attachConsultationChat === "function") attachConsultationChat(io);
 if (typeof attachTherapyChat === "function") attachTherapyChat(io);
-
 
 const PORT = process.env.PORT || 3100;
 
