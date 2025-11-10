@@ -14,11 +14,8 @@ const router = express.Router();
 // TODO: implement guide routes
 
 
-/**
- * POST /api/guides
- * Create a new health education guide
- * Roles: CONTENT_EDITOR, ADMIN
- */
+
+ // Create a new health education guide
 router.post(
   '/',
   requireAuth,
@@ -26,47 +23,33 @@ router.post(
   createGuide
 );
 
-/**
- * GET /api/guides
- * Get all guides (with optional filtering)
- * Query params: audience, published_only, limit, offset
- * Roles: All authenticated users
- */
+
+ // Get all guides (with optional filtering)
+ // Query par : audience  published_only  limit  offset
 router.get(
   '/',
   requireAuth,
   getAllGuides
 );
 
-/**
- * GET /api/guides/search
- * Search guides by title or body content
- * Query params: q (search query), audience, limit, offset
- * Roles: All authenticated users
- * NOTE: This must come before /:guide_id to avoid route conflicts
- */
+
+//Search guides by title or body content
+ // Query par : q (search query)  audience  limit  offset
 router.get(
   '/search',
   requireAuth,
   searchGuides
 );
 
-/**
- * GET /api/guides/:guide_id
- * Get a specific guide by ID
- * Roles: All authenticated users
- */
+
+ // Get a specific guide by ID
 router.get(
   '/:guide_id',
   requireAuth,
   getGuideById
 );
 
-/**
- * PUT /api/guides/:guide_id
- * Update a guide
- * Roles: CONTENT_EDITOR, ADMIN
- */
+ // Update a guide
 router.put(
   '/:guide_id',
   requireAuth,
@@ -74,11 +57,7 @@ router.put(
   updateGuide
 );
 
-/**
- * DELETE /api/guides/:guide_id
- * Delete a guide
- * Roles: ADMIN
- */
+ // Delete a guide
 router.delete(
   '/:guide_id',
   requireAuth,
