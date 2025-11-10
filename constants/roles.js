@@ -1,3 +1,4 @@
+//roles.js
 
 module.exports = {
   PATIENT: "PATIENT",
