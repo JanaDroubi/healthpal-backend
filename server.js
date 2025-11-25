@@ -41,6 +41,8 @@ app.use("/api/guide", require("./routes/guideRoutes"));
 app.use("/api/webinar", require("./routes/webinarRoutes"));
 app.use("/api/alerts", require("./routes/alertsRoutes"));
 
+app.use("/api/vaccinations", require("./routes/vaccinationRoutes"));
+
 app.get("/test", (req, res) => res.send("hello world"));
 
 const http = require("http");
