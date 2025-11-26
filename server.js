@@ -37,6 +37,12 @@ app.use("/api/VerifyDoctor", require("./routes/doctorVerificationRoutes"));
 app.use("/api/ngos", require("./routes/ngoRouters"));
 app.use("/api/mission", require("./routes/missionRoutes.js"));
 
+app.use("/api/guide", require("./routes/guideRoutes"));
+app.use("/api/webinar", require("./routes/webinarRoutes"));
+app.use("/api/alerts", require("./routes/alertsRoutes"));
+
+app.use("/api/vaccinations", require("./routes/vaccinationRoutes"));
+
 app.get("/test", (req, res) => res.send("hello world"));
 
 const http = require("http");
@@ -52,7 +58,7 @@ const { attachTherapyChat } = require("./socket/therapySocket");
 if (typeof attachConsultationChat === "function") attachConsultationChat(io);
 if (typeof attachTherapyChat === "function") attachTherapyChat(io);
 
-const PORT = process.env.PORT || 3100;
+const PORT = process.env.PORT || 3001;
 
 mySqlPool
   .query("SELECT 1")
