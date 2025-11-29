@@ -20,20 +20,20 @@ const router = express.Router();
 
 // Create new invoice
 // Allowed: ADMIN, DOCTOR, FINANCE_MANAGER
-router.post('/create', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'FINANCE_MANAGER'), createInvoice);
+router.post('/', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'FINANCE_MANAGER'), createInvoice);
 
 // Get all invoices (role-aware)
-router.get('/all', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'DOCTOR', 'PATIENT'), getAllInvoices);
+router.get('/', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'DOCTOR', 'PATIENT'), getAllInvoices);
 
 // Get single invoice by ID
-router.get('/view/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'DOCTOR', 'PATIENT'), getInvoiceById);
+router.get('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'DOCTOR', 'PATIENT'), getInvoiceById);
 
 // Update invoice info (e.g., description, due_date)
 // Allowed: ADMIN, FINANCE_MANAGER only
-router.put('/update/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), updateInvoice);
+router.put('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), updateInvoice);
 
 // Cancel invoice (soft delete)
 // Allowed: ADMIN, FINANCE_MANAGER
-router.patch('/cancel/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), cancelInvoice);
+router.patch('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), cancelInvoice);
 
 module.exports = router;

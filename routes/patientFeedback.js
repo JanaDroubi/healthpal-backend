@@ -11,9 +11,9 @@ const { addPatientFeedback, getFeedbackByCase } = require('../controllers/patien
  */
 
 //  Add feedback (only by patient for completed cases)
-router.post('/add', requireAuth, authorizeRoles('PATIENT'), addPatientFeedback);
+router.post('/', requireAuth, authorizeRoles('PATIENT'), addPatientFeedback);
 
 //  Get feedback for a specific case
-router.get('/get/:case_id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'DONOR', 'PATIENT'), getFeedbackByCase);
+router.get('/:case_id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'DONOR', 'PATIENT'), getFeedbackByCase);
 
 module.exports = router;

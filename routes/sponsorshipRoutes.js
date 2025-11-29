@@ -23,27 +23,27 @@ const router = express.Router();
 
 //  Create a new sponsorship case
 // - Allowed: ADMIN, DOCTOR (for patients), PATIENT (for themselves)
-router.post('/create', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), createCase);
+router.post('/cases', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), createCase);
 
 //  Get all sponsorship cases
 // - ADMIN/DOCTOR: all
 // - PATIENT: only their own
 // - DONOR: only OPEN / FUNDED
-router.get('/all', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getAllCases);
+router.get('/cases', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getAllCases);
 
 //  Get single sponsorship case by ID (detailed view) 
-router.get('/view/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getCaseById);
+router.get('/cases/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT', 'DONOR'), getCaseById);
 
 //  Update sponsorship case details
 // - Allowed: ADMIN, DOCTOR, PATIENT (own + PENDING)
-router.put('/update/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), updateCase);
+router.put('/cases/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), updateCase);
 
 //  Change sponsorship case status
 // - Allowed: ADMIN (and optionally FINANCE_MANAGER)
-router.patch('/status/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), changeCaseStatus);
+router.patch('/cases/:id/status', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), changeCaseStatus);
 
 //  Delete or deactivate sponsorship case
 // - Allowed: ADMIN, DOCTOR, PATIENT (own + PENDING)
-router.delete('/delete/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), deleteCase);
+router.delete('/cases/:id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR', 'PATIENT'), deleteCase);
 
 module.exports = router;

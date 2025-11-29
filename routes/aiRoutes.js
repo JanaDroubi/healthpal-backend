@@ -1,3 +1,4 @@
+//aiReviewRoutes
 const express = require("express");
 const { analyzeMedicalSymptomsFast, analyzeLabResults, generateMedicationSuggestion} = require("../controllers/aiController");
 const { requireAuth } = require("../middleware/auth");
