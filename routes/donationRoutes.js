@@ -21,11 +21,11 @@ const router = express.Router();
 //  Create a donation
 // - Allowed: DONOR, ADMIN
 // - Validates case status and donor profile
-router.post('/create', requireAuth, authorizeRoles('DONOR', 'ADMIN'), createDonation);
+router.post('/', requireAuth, authorizeRoles('DONOR', 'ADMIN'), createDonation);
 
 //  Get all donations (transparency / finance view)
 // - Allowed: ADMIN, FINANCE_MANAGER
-router.get('/all', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), getAllDonations);
+router.get('/', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), getAllDonations);
 
 //  Get donations by donor
 // - DONOR: can view only their own

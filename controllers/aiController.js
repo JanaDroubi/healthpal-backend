@@ -1,3 +1,4 @@
+//aiController
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const dayjs = require("dayjs");
 const db = require("../config/db");

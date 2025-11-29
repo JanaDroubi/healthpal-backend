@@ -18,12 +18,12 @@ const router = express.Router();
 
 // Create a new receipt (manual payment)
 // Allowed: ADMIN, FINANCE_MANAGER
-router.post('/create', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), createReceipt);
+router.post('/', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), createReceipt);
 
 // Get all receipts (role-aware)
-router.get('/all', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'PATIENT'), getAllReceipts);
+router.get('/', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'PATIENT'), getAllReceipts);
 
 // Get single receipt
-router.get('/view/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'PATIENT'), getReceiptById);
+router.get('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER', 'PATIENT'), getReceiptById);
 
 module.exports = router;

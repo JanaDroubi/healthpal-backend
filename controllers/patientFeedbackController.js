@@ -51,7 +51,7 @@ const getFeedbackByCase = async (req, res) => {
     const actor = req.user || {};
     const role = String(actor.role || '').toUpperCase();
 
-    //  تحقق من وجود الحالة وربطها بالمريض
+    
     const [[caseRow]] = await db.query(
       `SELECT id, patient_id, status FROM sponsorship_cases WHERE id = ?`,
       [case_id]
@@ -60,7 +60,7 @@ const getFeedbackByCase = async (req, res) => {
     if (!caseRow)
       return res.status(404).send({ success: false, message: "Case not found" });
 
-    //  تحقق من صلاحيات الوصول
+  
     if (role === 'PATIENT' && caseRow.patient_id !== actor.id) {
       return res.status(403).send({
         success: false,
@@ -69,7 +69,7 @@ const getFeedbackByCase = async (req, res) => {
     }
 
 
-    //  جلب الفيدباك
+    
     const [rows] = await db.query(
       `
       SELECT pf.*, u.full_name AS patient_name
