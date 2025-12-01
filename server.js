@@ -33,7 +33,7 @@ app.use(
 app.use("/api/inventory", require("./routes/inventoryRouters"));
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
-app.use("/api/VerifyDoctor", require("./routes/doctorVerificationRoutes"));
+app.use("/api/verification", require("./routes/doctorVerificationRoutes"));
 app.use("/api/ngos", require("./routes/ngoRouters"));
 app.use("/api/mission", require("./routes/missionRoutes.js"));
 

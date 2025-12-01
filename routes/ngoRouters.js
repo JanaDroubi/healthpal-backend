@@ -21,7 +21,7 @@ const router = express.Router();
 
 // CREATE NGO profile
 router.post(
-  "/create",
+  "/",
   requireAuth,
   authorizeRoles("ADMIN", "NGO"),
   createNgoProfile
@@ -29,7 +29,7 @@ router.post(
 
 // READ all verified NGOs
 router.get(
-  "/getall",
+  "/",
   requireAuth,
   authorizeRoles("ADMIN", "NGO"),
   getAllVerifiedNgos
@@ -37,7 +37,7 @@ router.get(
 
 // READ single NGO by user_id
 router.get(
-  "/view/:user_id",
+  "/:user_id",
   requireAuth,
   authorizeRoles("ADMIN", "NGO"),
   getNgoByUserId
@@ -45,7 +45,7 @@ router.get(
 
 // UPDATE NGO profile
 router.put(
-  "/update/:user_id",
+  "/:user_id",
   requireAuth,
   authorizeRoles("ADMIN", "NGO"),
   updateNgoProfile
