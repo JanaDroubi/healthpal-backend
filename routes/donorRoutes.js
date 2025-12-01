@@ -14,16 +14,16 @@ const { authorizeRoles } = require("../middleware/authorizeRoles");
 const router = express.Router();
 
 // CREATE
-router.post('/create', requireAuth, authorizeRoles("ADMIN", "DONOR"), createDonorProfile);
+router.post('/', requireAuth, authorizeRoles("ADMIN", "DONOR"), createDonorProfile);
 
 // READ
-router.get('/getall', requireAuth, authorizeRoles("ADMIN"), getAllDonors);
-router.get('/view/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), getDonorById);
+router.get('/', requireAuth, authorizeRoles("ADMIN"), getAllDonors);
+router.get('/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), getDonorById);
 
 // UPDATE
-router.put('/update/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), updateDonorProfile);
+router.put('/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), updateDonorProfile);
 
 // DELETE (soft)
-router.delete('/delete/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), deleteDonor);
+router.delete('/:user_id', requireAuth, authorizeRoles("ADMIN", "DONOR"), deleteDonor);
 
 module.exports = router;

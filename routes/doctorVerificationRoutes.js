@@ -15,6 +15,6 @@ router.post('/verifyDoctor/:doctor_id', requireAuth, authorizeRoles('ADMIN'), ve
 router.get('/pendingVerifications', requireAuth, authorizeRoles('ADMIN'), getPendingVerifications);
 
 // Doctor or Admin: view current verification status
-router.get('/verificationStatus/:doctor_id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR'), getDoctorVerificationStatus);
+router.get('/status/:doctor_id', requireAuth, authorizeRoles('ADMIN', 'DOCTOR'), getDoctorVerificationStatus);
 
 module.exports = router;

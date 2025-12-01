@@ -15,8 +15,6 @@ const { authorizeRoles } = require('../middleware/authorizeRoles');
 const router = express.Router();
 
 
-
-
 //GET ALL USERS LIST || GET
 
 router.get('/', requireAuth, authorizeRoles('ADMIN'), getUsers);
