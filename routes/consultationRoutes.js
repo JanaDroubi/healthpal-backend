@@ -1,5 +1,5 @@
 const express = require('express');
-const { bookConsultation, deleteConsultation, listMyConsultations, listConsultationsForAdmin, updatePendingConsultation, listDoctorConsultations, updateConsultationStatusByDoctor, updateConsultationByAdmin } = require('../controllers/consultationController');
+const { bookConsultation, deleteConsultation, listMyConsultations, listConsultationsForAdmin, updatePendingConsultation, listDoctorConsultations, updateConsultationStatusByDoctor, updateConsultationByAdmin, listConsultationMessages } = require('../controllers/consultationController');
 const { requireAuth } = require('../middleware/auth');
 const { authorizeRoles } = require('../middleware/authorizeRoles');
 const router = express.Router();
@@ -67,7 +67,7 @@ router.get(
     '/:consultation_id/messages',
     requireAuth,
     authorizeRoles('PATIENT', 'DOCTOR', 'ADMIN'),
-    listMyConsultations
+    listConsultationMessages
 );
 
 
