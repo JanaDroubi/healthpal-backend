@@ -5,6 +5,7 @@ const { verifyDoctorProfile, uploadDoctorDocuments, getPendingVerifications, get
 
 const router = express.Router();
 
+
 // Upload doctor verification documents (doctor only)
 router.post('/uploadDocuments/:doctor_id', requireAuth, authorizeRoles('DOCTOR'), uploadDoctorDocuments);
 
