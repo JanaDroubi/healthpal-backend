@@ -11,37 +11,52 @@ app.use(express.json());
 app.use(morgan("dev"));
 
 // Routes
+
+/*======================== User & Profiles ==========================*/
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
-app.use("/api/consultations", require("./routes/consultationRoutes"));
-app.use("/api/supportGroups", require("./routes/supportGroupsRoutes"));
-app.use("/api/therapy", require("./routes/therapyRoutes"));
 app.use("/api/donors", require("./routes/donorRoutes"));
+app.use("/api/ngos", require("./routes/ngoRouters"));
+
+/*============================== F1 ================================*/
+app.use("/api/consultations", require("./routes/consultationRoutes"));
+
+/*============================== F2 ================================*/
 app.use("/api/sponsorship", require("./routes/sponsorshipRoutes"));
 app.use("/api/donations", require("./routes/donationRoutes"));
 app.use("/api/invoices", require("./routes/invoiceRoutes"));
 app.use("/api/receipts", require("./routes/receiptRoutes"));
 app.use("/api/updates", require("./routes/recoveryUpdates"));
 app.use("/api/feedbacks", require("./routes/patientFeedback"));
+
+/*============================== F3 ================================*/
 app.use("/api/equipment", require("./routes/equipmentRoutes"));
 app.use("/api/medication", require("./routes/medicationRoutes"));
-app.use(
-  "/api/medication-requests",
-  require("./routes/medicationDeliveryRouter")
-);
+app.use("/api/medication-requests",require("./routes/medicationDeliveryRouter"));
 app.use("/api/inventory", require("./routes/inventoryRouters"));
-app.use("/api/ai", require("./routes/aiRoutes"));
-app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
-app.use("/api/verification", require("./routes/doctorVerificationRoutes"));
-app.use("/api/ngos", require("./routes/ngoRouters"));
-app.use("/api/mission", require("./routes/missionRoutes.js"));
 
+/*============================== F4 ================================*/
 app.use("/api/guide", require("./routes/guideRoutes"));
 app.use("/api/webinar", require("./routes/webinarRoutes"));
 app.use("/api/alerts", require("./routes/alertsRoutes"));
 
+/*============================== F5 ================================*/
+app.use("/api/supportGroups", require("./routes/supportGroupsRoutes"));
+app.use("/api/therapy", require("./routes/therapyRoutes"));
+
+/*============================== F6 ================================*/
+app.use("/api/mission", require("./routes/missionRoutes.js"));
+
+/*============================== F7 ================================*/
+app.use("/api/ai", require("./routes/aiRoutes"));
+app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
+app.use("/api/verification", require("./routes/doctorVerificationRoutes"));
+
+/*============================== F8 ================================*/
 app.use("/api/vaccinations", require("./routes/vaccinationRoutes"));
+
+
 
 app.get("/test", (req, res) => res.send("hello world"));
 
