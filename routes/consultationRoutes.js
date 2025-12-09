@@ -1,74 +1,92 @@
 const express = require('express');
-const { bookConsultation, deleteConsultation, listMyConsultations, listConsultationsForAdmin, updatePendingConsultation, listDoctorConsultations, updateConsultationStatusByDoctor, updateConsultationByAdmin, listConsultationMessages } = require('../controllers/consultationController');
+const {
+  bookConsultation,
+  deleteConsultation,
+  listMyConsultations,
+  listConsultationsForAdmin,
+  updatePendingConsultation,
+  listDoctorConsultations,
+  updateConsultationStatusByDoctor,
+  updateConsultationByAdmin,
+  listConsultationMessages
+} = require('../controllers/consultationController');
+
 const { requireAuth } = require('../middleware/auth');
 const { authorizeRoles } = require('../middleware/authorizeRoles');
+
 const router = express.Router();
 
-// Consultation Book
+
+// Book a consultation
 router.post(
-    '/',
-    requireAuth,
-    authorizeRoles('PATIENT', 'ADMIN'),
-    bookConsultation
+  '/',
+  requireAuth,
+  authorizeRoles('PATIENT', 'ADMIN'),
+  bookConsultation
 );
-// Delete Booking 
+
+// View my consultations (Patient)
+router.get(
+  '/mine',
+  requireAuth,
+  authorizeRoles('PATIENT'),
+  listMyConsultations
+);
+
+// View doctor consultations
+router.get(
+  '/doctor',
+  requireAuth,
+  authorizeRoles('DOCTOR'),
+  listDoctorConsultations
+);
+
+// View all consultations (Admin)
+router.get(
+  '/',
+  requireAuth,
+  authorizeRoles('ADMIN'),
+  listConsultationsForAdmin
+);
+
+// Update pending consultation (Patient)
+router.put(
+  '/:consultation_id',
+  requireAuth,
+  authorizeRoles('PATIENT'),
+  updatePendingConsultation
+);
+
+// Update by Doctor
+router.put(
+  '/:consultation_id/status',
+  requireAuth,
+  authorizeRoles('DOCTOR'),
+  updateConsultationStatusByDoctor
+);
+
+// Update by Admin
+router.put(
+  '/:consultation_id/admin',
+  requireAuth,
+  authorizeRoles('ADMIN'),
+  updateConsultationByAdmin
+);
+
+// Consultation messages (any role)
+router.get(
+  '/:consultation_id/messages',
+  requireAuth,
+  authorizeRoles('PATIENT', 'DOCTOR', 'ADMIN'),
+  listConsultationMessages
+);
+
+// Delete consultation
 router.delete(
-    '/:consultation_id',
-    requireAuth,
-    authorizeRoles('PATIENT', 'ADMIN'),
-    deleteConsultation
+  '/:consultation_id',
+  requireAuth,
+  authorizeRoles('PATIENT', 'ADMIN'),
+  deleteConsultation
 );
-//view consultation
-router.get(
-    '/mine',
-    requireAuth,
-    authorizeRoles('PATIENT'),
-    listMyConsultations
-);
-//view all Consultation for admin
-router.get(
-    '/',
-    requireAuth,
-    authorizeRoles('ADMIN'),
-    listConsultationsForAdmin
-);
-// Update Pending Consultation For Paitent
-router.put(
-    '/:consultation_id',
-    requireAuth,
-    authorizeRoles('PATIENT'),
-    updatePendingConsultation
-);
-//List of Doctor Consultations
-router.get(
-    '/doctor',
-    requireAuth,
-    authorizeRoles('DOCTOR'),
-    listDoctorConsultations
-);
-
-// Update By Doctor
-router.put(
-    '/:consultation_id/status',
-    requireAuth,
-    authorizeRoles('DOCTOR'),
-    updateConsultationStatusByDoctor
-);
-//Update By Admin
-router.put(
-    '/:consultation_id/admin',
-    requireAuth,
-    authorizeRoles('ADMIN'),
-    updateConsultationByAdmin
-);
-
-//msgs
-router.get(
-    '/:consultation_id/messages',
-    requireAuth,
-    authorizeRoles('PATIENT', 'DOCTOR', 'ADMIN'),
-    listConsultationMessages
-);
-
 
 module.exports = router;

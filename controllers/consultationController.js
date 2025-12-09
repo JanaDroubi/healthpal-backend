@@ -179,7 +179,6 @@ const deleteConsultation = async (req, res) => {
     const actorRole = String(actor.role || '').trim().toUpperCase();
     const actorId = String(actor.id || '');
 
-    // جلب الموعد + رقم السلوُت المرتبط فيه
     const [[consult]] = await db.query(
       `SELECT id, patient_id, slot_id, status
          FROM consultations
@@ -194,7 +193,6 @@ const deleteConsultation = async (req, res) => {
       });
     }
 
-    // المريض فقط يحذف مواعيده ويشترط PENDING
     if (actorRole === 'PATIENT') {
       if (actorId !== String(consult.patient_id)) {
         return res.status(403).json({
@@ -211,18 +209,14 @@ const deleteConsultation = async (req, res) => {
       }
     }
 
-    // ✅ إذا وصلنا لهون → يا إما المريض يملك الحق أو المستخدِم هو ADMIN
-
     conn = await db.getConnection();
     await conn.beginTransaction();
 
-    // حذف الموعد
     await conn.query(
       'DELETE FROM consultations WHERE id = ?',
       [consultation_id]
     );
 
-    // إرجاع السلوُت غير محجوز
     await conn.query(
       `UPDATE availability_slots 
           SET is_booked = 0

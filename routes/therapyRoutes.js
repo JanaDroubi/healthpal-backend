@@ -37,12 +37,12 @@ router.delete(
 
 // Book Therapy Slot
 router.post(
-  '/slots/:slot_id/bookings',
+  '/:therapist_id/slots/:slot_id/bookings',
   requireAuth,
   authorizeRoles('PATIENT', 'ADMIN'),
   bookTherapySlot
 );
-;
+
 
 // Update Availability Slot
 router.put(

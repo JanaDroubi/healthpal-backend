@@ -304,8 +304,12 @@ const deleteTherapyAvailabilitySlot = async (req, res) => {
 
 function normMode(m) {
   const v = String(m || '').toUpperCase();
-  if (v === 'CHAT') return 'ASYNC_MSG';
-  return ['VIDEO','AUDIO','ASYNC_MSG'].includes(v) ? v : null;
+
+  // Convert ASYNC_MSG → CHAT (client mapping)
+  if (v === 'ASYNC_MSG') return 'CHAT';
+
+  const allowed = ['VIDEO', 'AUDIO', 'CHAT'];
+  return allowed.includes(v) ? v : null;
 }
 
 const bookTherapySlot = async (req, res) => {
@@ -316,26 +320,39 @@ const bookTherapySlot = async (req, res) => {
     const role = String(actor.role || '').toUpperCase();
     const actorId = Number(actor.id);
 
+    // Therapist must exist & active
     const okTh = await ensureTherapistActive(therapist_id);
     if (!okTh.ok) return res.status(okTh.code).json({ success:false, message: okTh.msg });
 
     const mode = normMode(req.body?.mode);
     const anonymous = (req.body?.anonymous === true || String(req.body?.anonymous) === '1') ? 1 : 0;
     const notes = (req.body?.notes || '').toString().slice(0, 500).trim();
-    if (!mode) return res.status(400).json({ success:false, message:'mode must be one of VIDEO, AUDIO, ASYNC_MSG' });
-    if (anonymous === 1 && mode !== 'ASYNC_MSG')
-      return res.status(400).json({ success:false, message:'Anonymous sessions must use ASYNC_MSG (chat).' });
 
+    if (!mode)
+      return res.status(400).json({ success:false, message:'mode must be one of VIDEO, AUDIO, CHAT' });
+
+    if (anonymous === 1 && mode !== 'CHAT')
+      return res.status(400).json({ success:false, message:'Anonymous sessions must use CHAT mode.' });
+
+    // Who is the patient?
     let patientId = null;
     const bookedBy = actorId;
+
     if (anonymous === 0) {
       if (role === 'PATIENT') {
         patientId = actorId;
       } else if (role === 'ADMIN') {
         const pid = Number(req.body?.patient_id || 0);
-        if (!pid) return res.status(400).json({ success:false, message:'patient_id is required for ADMIN (non-anonymous).' });
-        const [[p]] = await db.query('SELECT user_id FROM patient_profiles WHERE user_id=? LIMIT 1', [pid]);
-        if (!p) return res.status(404).json({ success:false, message:'Patient profile not found.' });
+        if (!pid)
+          return res.status(400).json({ success:false, message:'patient_id is required for ADMIN (non-anonymous).' });
+
+        const [[p]] = await db.query(
+          'SELECT user_id FROM patient_profiles WHERE user_id=? LIMIT 1',
+          [pid]
+        );
+        if (!p)
+          return res.status(404).json({ success:false, message:'Patient profile not found.' });
+
         patientId = pid;
       } else {
         return res.status(403).json({ success:false, message:'Only PATIENT or ADMIN can book non-anonymous sessions.' });
@@ -345,57 +362,71 @@ const bookTherapySlot = async (req, res) => {
         return res.status(403).json({ success:false, message:'Only PATIENT or ADMIN can book anonymous sessions.' });
     }
 
-
     conn = await db.getConnection();
     await conn.beginTransaction();
 
+    // Check slot availability
     const [rows] = await conn.query(
       `SELECT id, doctor_id, start_at, end_at, is_booked
-         FROM availability_slots
-        WHERE id=? AND doctor_id=? 
-        FOR UPDATE`,
+       FROM availability_slots
+       WHERE id=? AND doctor_id=?
+       FOR UPDATE`,
       [slot_id, therapist_id]
     );
     const slot = rows[0];
+
     if (!slot) {
-      await conn.rollback(); return res.status(404).json({ success:false, message:'Slot not found for this therapist.' });
-    }
-    if (Number(slot.is_booked) === 1) {
-      await conn.rollback(); return res.status(409).json({ success:false, message:'This slot is already confirmed/booked.' });
-    }
-    if (new Date(slot.end_at) <= new Date()) {
-      await conn.rollback(); return res.status(400).json({ success:false, message:'Cannot book a slot in the past.' });
+      await conn.rollback();
+      return res.status(404).json({ success:false, message:'Slot not found for this therapist.' });
     }
 
+    if (Number(slot.is_booked) === 1) {
+      await conn.rollback();
+      return res.status(409).json({ success:false, message:'This slot is already booked.' });
+    }
+
+    if (new Date(slot.end_at) <= new Date()) {
+      await conn.rollback();
+      return res.status(400).json({ success:false, message:'Cannot book a slot in the past.' });
+    }
+
+    // Prevent double booking
     if (anonymous === 0 && patientId) {
       const [dup] = await conn.query(
         `SELECT id FROM therapy_sessions
-          WHERE slot_id=? AND patient_id=? 
-            AND status IN ('PENDING','CONFIRMED','IN_PROGRESS')
-          LIMIT 1`,
+         WHERE slot_id=? AND patient_id=?
+           AND status IN ('PENDING','CONFIRMED','IN_PROGRESS')
+         LIMIT 1`,
         [slot.id, patientId]
       );
-      if (dup.length) { await conn.rollback(); return res.status(409).json({ success:false, message:'You already have a booking for this slot.' }); }
+      if (dup.length) {
+        await conn.rollback();
+        return res.status(409).json({ success:false, message:'You already have a booking for this slot.' });
+      }
     } else {
       const [dupA] = await conn.query(
         `SELECT id FROM therapy_sessions
-          WHERE slot_id=? AND anonymous=1 AND booked_by=?
-            AND status IN ('PENDING','CONFIRMED','IN_PROGRESS')
-          LIMIT 1`,
+         WHERE slot_id=? AND anonymous=1 AND booked_by=?
+           AND status IN ('PENDING','CONFIRMED','IN_PROGRESS')
+         LIMIT 1`,
         [slot.id, bookedBy]
       );
-      if (dupA.length) { await conn.rollback(); return res.status(409).json({ success:false, message:'You already have an anonymous booking for this slot.' }); }
+      if (dupA.length) {
+        await conn.rollback();
+        return res.status(409).json({ success:false, message:'You already have an anonymous booking for this slot.' });
+      }
     }
 
+    // INSERT session (according to DB structure)
     const [ins] = await conn.query(
       `INSERT INTO therapy_sessions
-        (patient_id, therapist_id, slot_id, mode, scheduled_at, status, anonymous, notes, booked_by, created_at, updated_at)
+       (patient_id, therapist_id, slot_id, mode, scheduled_at, status, anonymous, notes, booked_by, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, 'PENDING', ?, ?, ?, NOW(), NOW())`,
       [
         patientId,
         therapist_id,
         slot.id,
-        mode,
+        mode,              // must be VIDEO / AUDIO / CHAT
         slot.start_at,
         anonymous,
         notes || `slot:${slot.id}`,
@@ -403,20 +434,23 @@ const bookTherapySlot = async (req, res) => {
       ]
     );
 
+    // Mark slot as booked
     const [upd] = await conn.query(
-      `UPDATE availability_slots 
-          SET is_booked=1, updated_at=NOW()
-        WHERE id=? AND is_booked=0`,
+      `UPDATE availability_slots
+       SET is_booked=1
+       WHERE id=? AND is_booked=0`,
       [slot.id]
     );
+
     if (upd.affectedRows !== 1) {
-      await conn.rollback(); 
-      return res.status(409).json({ success:false, message:'Slot just got booked by someone else. Try another slot.' });
+      await conn.rollback();
+      return res.status(409).json({ success:false, message:'Slot just got booked by someone else.' });
     }
 
     await conn.commit();
 
     res.set('Location', `/api/therapy/sessions/${ins.insertId}`);
+
     return res.status(201).json({
       success: true,
       message: 'Therapy session request created (PENDING).',
@@ -431,14 +465,16 @@ const bookTherapySlot = async (req, res) => {
         status: 'PENDING'
       }
     });
+
   } catch (err) {
-    if (conn) { try { await conn.rollback(); } catch (_) {} }
+    if (conn) try { await conn.rollback(); } catch { }
     console.error('bookTherapySlot error:', err?.sqlMessage || err);
     return res.status(500).json({ success:false, message:'Server error' });
   } finally {
     if (conn) conn.release();
   }
 };
+
 
 
 
