@@ -1,7 +1,7 @@
 
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
-const { translateText } = require('../services/translationService');
+const { translateText } = require('../messages/translationService');
 const { log } = require('winston');
 
 async function getSession(sessionId) {

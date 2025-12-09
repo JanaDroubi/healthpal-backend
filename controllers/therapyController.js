@@ -2,7 +2,7 @@
 const db = require('../config/db');
 const dayjs = require('dayjs');
 
-const { translateText } = require('../services/translationService');
+const { translateText } = require('../messages/translationService');
 const parseDateTime = (s) => dayjs(s, ['YYYY-MM-DD HH:mm', dayjs.ISO_8601], true);
 
 async function ensureTherapistActive(therapistId) {
