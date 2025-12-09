@@ -5,6 +5,7 @@
 [![Express](https://img.shields.io/badge/Express.js-backend-blue?logo=express)]()
 [![MySQL](https://img.shields.io/badge/MySQL-Database-orange?logo=mysql)]()
 [![Socket.io](https://img.shields.io/badge/Socket.io-Real--Time-black?logo=socket.io)]()
+[![Gemini AI](https://img.shields.io/badge/Gemini_AI-ML%2FLLM-purple?logo=google)]()
 
 **HealthPal** is a unified digital healthcare platform designed to support patients, doctors, NGOs, volunteers, and donors in Palestine.
 It provides **remote consultations, medical sponsorships, medication coordination, and real-time communication**.
