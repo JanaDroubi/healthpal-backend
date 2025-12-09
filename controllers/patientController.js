@@ -444,9 +444,12 @@ const listAvailableForPatients = async (req, res) => {
     if (gender) {
       const gRaw = String(gender).trim().toLowerCase();
       const mapGender = {
-        m: 'M', male: 'M', 'ذكر': 'M',
-        f: 'F', female: 'F', 'انثى': 'F', 'أنثى': 'F'
+        m: 'M',
+        male: 'M',
+        f: 'F',
+        female: 'F'
       };
+
       const g = mapGender[gRaw];
       if (!g) {
         return res.status(400).json({ success: false, message: "Invalid gender. Use M/F or male/female." });
