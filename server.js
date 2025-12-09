@@ -16,6 +16,7 @@ app.use(morgan("dev"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/patients", require("./routes/patientRoutes"));
 app.use("/api/doctors", require("./routes/doctorRoutes"));
+app.use("/api/verification", require("./routes/doctorVerificationRoutes"));
 app.use("/api/donors", require("./routes/donorRoutes"));
 app.use("/api/ngos", require("./routes/ngoRouters"));
 
@@ -51,7 +52,6 @@ app.use("/api/mission", require("./routes/missionRoutes.js"));
 /*============================== F7 ================================*/
 app.use("/api/ai", require("./routes/aiRoutes"));
 app.use("/api/ai-review", require("./routes/aiReviewRoutes"));
-app.use("/api/verification", require("./routes/doctorVerificationRoutes"));
 
 /*============================== F8 ================================*/
 app.use("/api/vaccinations", require("./routes/vaccinationRoutes"));

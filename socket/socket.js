@@ -1,7 +1,7 @@
 
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
-const { translateText } = require('../services/translationService');
+const { translateText } = require('../messages/translationService');
 
 const userSockets = new Map();
 const addSock = (uid, sid) => {
