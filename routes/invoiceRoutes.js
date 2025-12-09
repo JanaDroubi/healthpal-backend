@@ -34,6 +34,6 @@ router.put('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), upda
 
 // Cancel invoice (soft delete)
 // Allowed: ADMIN, FINANCE_MANAGER
-router.patch('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), cancelInvoice);
+router.delete('/:id', requireAuth, authorizeRoles('ADMIN', 'FINANCE_MANAGER'), cancelInvoice);
 
 module.exports = router;
