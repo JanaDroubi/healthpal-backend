@@ -1,55 +1,114 @@
+🚑 HealthPal — Unified Digital Healthcare Platform for Palestine
+
+
+
+
+
+
+
+
+HealthPal is a unified digital healthcare platform designed to support patients, doctors, NGOs, volunteers, and donors in Palestine.
+It provides remote consultations, medical case sponsorships, medication coordination, and real-time communication.
+
+📌 Full documentation and technical details are available in the project Wiki.
+
+📚 Table of Contents
+
+Project Overview
+
+Tech Stack
+
+How to Run the Project
+
+Install Dependencies
+
+Create .env
+
+Start Server
+
+Access API
+
+Credits
+
+🌍 Project Overview
+
+HealthPal helps deliver accessible and reliable healthcare through:
+
+Remote medical consultations
+
+Donor-funded case sponsorship
+
+Medication & equipment coordination
+
+NGO medical mission support
+
+Mental health support
+
+Real-time chat and notifications
+
+All optimized for low-resource environments, poor connectivity, and crisis situations.
+
+🛠️ Tech Stack
+
+Node.js + Express.js
+
+MySQL (healthpal_db)
+
+JWT Authentication
+
+Socket.io Real-Time Messaging
+
+Dotenv (Environment Config)
+
+Nodemon (Dev Mode)
+
 🚀 How to Run the Project
-
-Follow these steps to run the HealthPal backend:
-
 1️⃣ Install Dependencies
 
-Open PowerShell inside your project folder:
+Open PowerShell:
 
 PS C:\Users\hp\healthpal-backend> npm install
 
-2️⃣ Add Your Environment Variables
+2️⃣ Create a .env File
 
-Create a .env file at the root:
+Create .env in the project root with your exact values:
 
-      PORT=3100
-      DB_HOST=localhost
-      DB_USER=root
-      DB_PASSWORD=yourpassword
-      DB_NAME=healthpal
-      JWT_SECRET=yourSecretKey
-      EMAIL_USER=yourEmail
-      EMAIL_PASS=yourEmailPassword
+DB_NAME=healthpal_db
+DB_USER=root
+DB_PASSWORD=123456789
+DB_HOST=localhost
+DB_PORT=3306
 
+PORT=3100
 
-(Replace values with your real credentials.)
+JWT_SECRET=mySuperSecretKey
+JWT_ACCESS_SECRET=mySuperSecretKey
+JWT_ACCESS_EXPIRES=1000h
 
 3️⃣ Start the Server (Development Mode)
-
-Run this command in PowerShell:
-
 PS C:\Users\hp\healthpal-backend> npm run dev
 
 
-You should see:
+Expected successful output:
 
 > healthpal-backend@1.0.0 dev
 > nodemon server.js
 
 [nodemon] starting `node server.js`
-[dotenv@17.2.3] injecting env (9) from .env
+[dotenv] injecting env from .env
 MYSQL DB Connected
 Server + WebSocket Running on port 3100
 MYSQL Connected ✅
 
-
-This means the server and WebSocket are running successfully.
-
 4️⃣ Access the API
 
-Your backend is now running at:
+Base URL:
 
 http://localhost:3100
 
 
-Use Postman, your frontend, or browser to test endpoints.
+Use Postman, browser, or frontend to test endpoints.
+
+🤝 Credits
+
+Developed for supporting accessible, transparent, and reliable healthcare for Palestinian communities.
