@@ -1,8 +1,4 @@
-Got it! Based on your GitHub Markdown syntax guide, here’s your **fully formatted, clean, and GitHub-ready README** for HealthPal with proper headings, code blocks, lists, alerts, bold/italic emphasis, and emojis. I also integrated your `.env` values and PowerShell run instructions.
 
-You can **copy-paste this directly into `README.md`**:
-
----
 
 # 🚑 HealthPal — Unified Digital Healthcare Platform for Palestine
 
