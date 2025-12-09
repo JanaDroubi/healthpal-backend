@@ -136,9 +136,3 @@ Use **Postman**, browser, or your frontend to test endpoints.
 ## 🤝 Credits
 
 Developed for **accessible, transparent, and reliable healthcare for Palestinian communities**.
-
----
-
-> [!TIP]
-> You can enhance this README with screenshots, UML diagrams, and API examples in the Wiki.
-
