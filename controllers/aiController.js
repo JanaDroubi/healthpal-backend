@@ -12,12 +12,13 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
  */
 const analyzeMedicalSymptomsFast = async (req, res) => {
   try {
-    const { user_id, symptoms } = req.body;
+    const user_id = req.user.id; 
+    const { symptoms } = req.body;
 
-    if (!user_id || !symptoms) {
+    if (!symptoms) {
       return res.status(400).send({
         success: false,
-        message: "user_id and symptoms are required.",
+        message: "symptoms is required.",
       });
     }
 
@@ -142,16 +143,20 @@ Symptoms: ${symptoms}
  */
 const analyzeLabResults = async (req, res) => {
   try {
-    const { patient_id, test_type, results } = req.body;
+    const patient_id = req.user.id; 
     const actor = req.user || {};
     const actorId = actor.id || null;
 
-    if (!patient_id || !test_type || !results) {
+    const { test_type, results } = req.body;
+
+    if (!test_type || !results) {
       return res.status(400).send({
         success: false,
-        message: "patient_id, test_type, and results are required.",
+        message: "test_type and results are required.",
       });
     }
+
+
 
     const cleanedResults = Object.fromEntries(
       Object.entries(results).map(([k, v]) => [k, parseFloat(v) || v])
@@ -247,15 +252,20 @@ ${resultsFormatted}
  */
 const generateMedicationSuggestion = async (req, res) => {
   try {
-    const { patient_id, diagnosed_condition } = req.body;
+    const patient_id = req.user.id; ///
     const suggested_by = req.user?.id || null;
 
-    if (!patient_id || !diagnosed_condition) {
+    const { diagnosed_condition } = req.body;
+
+    if (!diagnosed_condition) {
       return res.status(400).send({
         success: false,
-        message: "patient_id and diagnosed_condition are required.",
+        message: "diagnosed_condition is required.",
       });
     }
+
+    
+
 
     const prompt = `
 You are a certified medical AI assistant.
