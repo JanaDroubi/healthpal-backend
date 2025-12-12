@@ -86,13 +86,13 @@ Create a `.env` file in the project root with these values:
 ```env
 DB_NAME=healthpal_db
 DB_USER=root
-DB_PASSWORD=123456789
+DB_PASSWORD=********
 DB_HOST=localhost
 DB_PORT=3306
 PORT=3100
 JWT_SECRET=mySuperSecretKey
 JWT_ACCESS_SECRET=mySuperSecretKey
-JWT_ACCESS_EXPIRES=1000h
+JWT_ACCESS_EXPIRES=10h
 ```
 
 > [!TIP]
